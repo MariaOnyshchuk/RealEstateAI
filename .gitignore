@@ -1,0 +1,4 @@
+/chatbot-env
+__pycache__
+.env
+geeks2.db
