@@ -31,6 +31,8 @@ class Agent:
         self.tools = tools
         self.db = db
 
+        self.agent_type = agent_type
+
         self.get_schema_tool = next(tool for tool in tools if tool.name == "sql_db_schema")
         self.get_schema_node = ToolNode([self.get_schema_tool], name="get_schema")
 
