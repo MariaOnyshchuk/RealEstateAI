@@ -21,15 +21,6 @@ if 'chat_history' not in st.session_state:
 if 'feedback' not in st.session_state:
     st.session_state.feedback = {}
 
-router = Router(backend._bedrock_llm)
-summarizer = Summarizer(backend._bedrock_llm)
-
-family_agent = Agent(backend._bedrock_llm, 'family')
-investor_agent = Agent(backend._bedrock_llm, 'investor')
-young_professional_agent = Agent(backend._bedrock_llm, 'young_professional')
-
-agents = [family_agent, investor_agent, young_professional_agent]
-
 for idx, message in enumerate(st.session_state.chat_history): 
     with st.chat_message(message["role"]): 
         st.markdown(message["text"])
@@ -60,6 +51,16 @@ if user_input:
     st.session_state.chat_history.append({"role":"user", "text":user_input}) 
 
     question = user_input
+
+    router = Router(backend._bedrock_llm)
+    summarizer = Summarizer(backend._bedrock_llm)
+
+    family_agent = Agent(backend._bedrock_llm, 'family')
+    investor_agent = Agent(backend._bedrock_llm, 'investor')
+    young_professional_agent = Agent(backend._bedrock_llm, 'young_professional')
+
+    agents = [family_agent, investor_agent, young_professional_agent]
+
 
     output, router_response = router.select_models(question)
     print(f'{router_response=}')

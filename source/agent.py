@@ -8,15 +8,20 @@ from langchain.messages import AIMessage
 from langchain_core.runnables import RunnableConfig
 from langgraph.graph import END, START, MessagesState, StateGraph
 
+import os, dotenv
+
 class Agent:
 
     def __init__(self, llm, agent_type):
 
-        db = SQLDatabase.from_uri("sqlite:///geeks2.db")
+        dotenv.load_dotenv()
+        db_url = os.getenv("DATABASE_URL")
+        
+        db = SQLDatabase.from_uri(db_url)
 
         print(f"Dialect: {db.dialect}")
         print(f"Available tables: {db.get_usable_table_names()}")
-        print(f'Sample output: {db.run("SELECT * FROM DB LIMIT 5;")}')
+        print(f'Sample output: {db.run("SELECT * FROM db LIMIT 5;")}')
 
         from langchain_community.agent_toolkits import SQLDatabaseToolkit
 

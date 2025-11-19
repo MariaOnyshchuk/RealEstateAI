@@ -6,7 +6,12 @@ WORKDIR /app
 RUN apt-get update && apt-get install -y curl && rm -rf /var/lib/apt/lists/*
 
 COPY requirements.txt .
+
+RUN apt-get update && apt-get install -y \
+    libpq-dev \
+    gcc
 RUN pip install --no-cache-dir -r requirements.txt
+# RUN apt-get install python3-psycopg2
 
 COPY source/ .
 
