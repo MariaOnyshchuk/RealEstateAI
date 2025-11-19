@@ -52,6 +52,17 @@ class Agent:
         only ask for the relevant columns given the question.
 
         DO NOT make any DML statements (INSERT, UPDATE, DELETE, DROP etc.) to the database.
+
+        IMPORTANT:
+        - The main listings table contains a column named `property_url`.
+        - For any query that returns properties, ALWAYS include the `property_url` column in the SELECT clause,
+        together with other relevant columns.
+        - Your final natural-language answer MUST explicitly show the `property_url` for each recommended property.
+
+        If SQL results return no rows, do not try additional queries.
+        Return an approximate answer based on reasoning instead of re-querying.
+        Never call the SQL tool more than once per user question.
+
         """.format(
             dialect=db.dialect,
             top_k=5,
@@ -93,10 +104,7 @@ class Agent:
             return {"messages": [tool_call_message, tool_message, response]}
 
 
-        # Example: force a model to create a tool call
         def call_get_schema(state: MessagesState):
-            # Note that LangChain enforces that all models accept `tool_choice="any"`
-            # as well as `tool_choice=<string name of tool>`.
             llm_with_tools = self.llm.bind_tools([self.get_schema_tool], tool_choice="any")
             response = llm_with_tools.invoke(state["messages"])
 
@@ -108,8 +116,7 @@ class Agent:
                 "role": "system",
                 "content": self.generate_query_system_prompt,
             }
-            # We do not force a tool call here, to allow the model to
-            # respond naturally when it obtains the solution.
+
             llm_with_tools = self.llm.bind_tools([self.run_query_tool])
             response = llm_with_tools.invoke([system_message] + state["messages"])
 
@@ -122,7 +129,6 @@ class Agent:
                 "content": self.check_query_system_prompt,
             }
 
-            # Generate an artificial user message to check
             tool_call = state["messages"][-1].tool_calls[0]
             user_message = {"role": "user", "content": tool_call["args"]["query"]}
             llm_with_tools = self.llm.bind_tools([self.run_query_tool], tool_choice="any")
@@ -168,7 +174,7 @@ class Agent:
             stream_mode="values",
             recursion_limit=100
         ):
-            # step["messages"][-1].pretty_print()
+
             answers.append(step["messages"][-1])
 
         return answers[-1].content
