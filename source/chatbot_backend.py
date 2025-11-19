@@ -85,12 +85,13 @@ def get_session_history(session_id: str) -> InMemoryChatMessageHistory:
     # print(repr(messages))
 
     translated_messages = []
-    for message in messages.split('\n'):
-        if message[:3] == 'AI:':
-            translated_messages.append(AIMessage(message[4:]))
-        else:
-            assert message[:6] == 'Human:'
+    for message in messages.split('\nAI: '):
+        if message[:6] == 'Human:':
             translated_messages.append(HumanMessage(message[7:]))
+        else:
+            # print(respr(message))
+            # assert message[:3] == 'AI:'
+            translated_messages.append(AIMessage(message))
 
     store[session_id] = InMemoryChatMessageHistory(messages=translated_messages)
     return store[session_id]

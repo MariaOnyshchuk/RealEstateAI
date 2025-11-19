@@ -6,7 +6,7 @@ from summarizer import Summarizer
 
 st.title("Real Estate Chatbot 🤖")
 
-# print(st.session_state)
+# Initialize session state
 if 'store' not in st.session_state:
     st.session_state.store = {}
 
@@ -18,6 +18,9 @@ if 'chat_memory' not in st.session_state:
 if 'chat_history' not in st.session_state:
     st.session_state.chat_history = []
 
+if 'feedback' not in st.session_state:
+    st.session_state.feedback = {}
+
 router = Router(backend._bedrock_llm)
 summarizer = Summarizer(backend._bedrock_llm)
 
@@ -27,12 +30,28 @@ young_professional_agent = Agent(backend._bedrock_llm, 'young_professional')
 
 agents = [family_agent, investor_agent, young_professional_agent]
 
-# Display chat history
-for message in st.session_state.chat_history: 
+for idx, message in enumerate(st.session_state.chat_history): 
     with st.chat_message(message["role"]): 
-        st.markdown(message["text"]) 
+        st.markdown(message["text"])
+        
+        if message["role"] == "assistant":
+            col1, col2, col3 = st.columns([1, 1, 10])
+            
+            with col1:
+                if st.button("👍", key=f"like_{idx}"):
+                    st.session_state.feedback[idx] = "like"
+                    st.rerun()  
+                    
+            with col2:
+                if st.button("👎", key=f"dislike_{idx}"):
+                    st.session_state.feedback[idx] = "dislike"
+                    st.rerun()  
+            
+            if idx in st.session_state.feedback:
+                with col3:
+                    feedback_icon = "👍" if st.session_state.feedback[idx] == "like" else "👎"
+                    st.caption(f"Your feedback: {feedback_icon}")
 
-# Chat input
 user_input = st.chat_input("Ask me anything...")
 if user_input: 
     # Display user message
@@ -41,7 +60,6 @@ if user_input:
     st.session_state.chat_history.append({"role":"user", "text":user_input}) 
 
     question = user_input
-
 
     output, router_response = router.select_models(question)
     print(f'{router_response=}')
@@ -54,24 +72,38 @@ if user_input:
 
     with st.chat_message("assistant"): 
         st.markdown(output)
+    st.session_state.chat_history.append({"role":"assistant", "text":output})  
 
-    # Get AI response
-    # ai_response = backend.get_ai_response(user_input, st.session_state.store)
-    # ai_family_response = family_agent.infer(question)
     responses = []
 
     for agent in selected_agents:
-
         ai_response = agent.infer(question)
         responses.append((agent.agent_type, ai_response))
-                                                
+        
+        agent_text = f"[{agent.agent_type}]:\n{ai_response}" 
         with st.chat_message("assistant"): 
-            st.markdown(f"[{agent.agent_type}]:\n" + ai_response)
+            st.markdown(agent_text)
+        st.session_state.chat_history.append({"role":"assistant", "text":agent_text}) 
 
     if len(selected_agents) > 1:
         summarization = summarizer.infer(str(responses))
+        summary_text = f"[Summary]:\n{summarization}"
         with st.chat_message("assistant"): 
-            st.markdown(f"[Summary]:\n" + summarization)
+            st.markdown(summary_text)
+        st.session_state.chat_history.append({"role":"assistant", "text":summary_text})  
     
-        # st.markdown(answers[-1].content)
-    # st.session_state.chat_history.append({"role":"assistant", "text":ai_response}) 
+    st.rerun()  
+
+with st.sidebar:
+    if st.session_state.feedback:
+        import json
+        feedback_data = {
+            "chat_history": st.session_state.chat_history,
+            "feedback": st.session_state.feedback
+        }
+        st.download_button(
+            "Download Feedback",
+            data=json.dumps(feedback_data, indent=2, ensure_ascii=False),
+            file_name="chatbot_feedback.json",
+            mime="application/json"
+        )
