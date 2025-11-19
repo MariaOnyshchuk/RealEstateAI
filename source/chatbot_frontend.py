@@ -7,7 +7,7 @@ from agents.base_agent import ParameterExtractor
 
 st.title("Real Estate Chatbot 🏠")
 
-# print(st.session_state)
+# Initialize session state
 if 'store' not in st.session_state:
     st.session_state.store = {}
 
@@ -18,6 +18,9 @@ if 'chat_memory' not in st.session_state:
 # Initialize chat history
 if 'chat_history' not in st.session_state:
     st.session_state.chat_history = []
+
+if 'feedback' not in st.session_state:
+    st.session_state.feedback = {}
 
 router = Router(backend._bedrock_llm)
 summarizer = Summarizer(backend._bedrock_llm)
@@ -31,13 +34,35 @@ young_professional_agent = YoungProfessionalAgent(backend._bedrock_llm)
 
 agents = [family_agent, investor_agent, young_professional_agent]
 
-for message in st.session_state.chat_history: 
+# Display chat history with feedback buttons
+for idx, message in enumerate(st.session_state.chat_history): 
     with st.chat_message(message["role"]): 
-        st.markdown(message["text"]) 
-        # Show extracted params if they exist
+        st.markdown(message["text"])
+        
+        # Display extracted parameters if available
         if "params" in message and message["params"]:
             with st.expander("🔍 Extracted Search Parameters"):
                 st.json(message["params"])
+        
+        # Show feedback buttons ONLY for assistant messages
+        if message["role"] == "assistant":
+            col1, col2, col3 = st.columns([1, 1, 10])
+            
+            with col1:
+                if st.button("👍", key=f"like_{idx}"):
+                    st.session_state.feedback[idx] = "like"
+                    st.rerun()  
+                    
+            with col2:
+                if st.button("👎", key=f"dislike_{idx}"):
+                    st.session_state.feedback[idx] = "dislike"
+                    st.rerun()  
+            
+            # Show feedback status if already given
+            if idx in st.session_state.feedback:
+                with col3:
+                    feedback_icon = "👍" if st.session_state.feedback[idx] == "like" else "👎"
+                    st.caption(f"Your feedback: {feedback_icon}")
 
 user_input = st.chat_input("Ask me anything...")
 if user_input: 
@@ -51,6 +76,7 @@ if user_input:
 
     question = user_input
 
+    # Extract search parameters
     with st.spinner("🔍 Analyzing your query..."):
         search_params = extractor.extract(question)
 
@@ -67,6 +93,7 @@ if user_input:
             "params": search_params
         })
 
+    # Select agents using router
     with st.spinner("🤖 Selecting the right agents..."):
         _, router_response = router.select_models(question)
 
@@ -84,10 +111,11 @@ if user_input:
 
     responses = []
 
+    # Get responses from selected agents
     for agent in selected_agents:
         with st.spinner(f"💭 {agent.agent_type.replace('_', ' ').title()} is thinking..."):
-            print(f"DEBUG: Extracted Question: {question}")
-            print(f"DEBUG: Extracted search_params: {search_params}")
+            print(f"DEBUG: Question: {question}")
+            print(f"DEBUG: search_params: {search_params}")
             ai_response = agent.infer(question, search_params)
 
         responses.append((agent.agent_type, ai_response))
@@ -102,7 +130,6 @@ if user_input:
             "text": f"**[{agent_name}]:**\n{ai_response}"
         })
 
-    # --- STEP 4: Summarize (if multiple agents responded) ---
     if len(selected_agents) > 1:
         with st.spinner("📝 Creating summary..."):
             summarization = summarizer.infer(str(responses))
@@ -112,8 +139,24 @@ if user_input:
             st.markdown(f"**[Summary]:**")
             st.markdown(summarization)
 
-        # Store summary in chat history
         st.session_state.chat_history.append({
             "role": "assistant",
             "text": f"**[Summary]:**\n{summarization}"
         })
+    
+    st.rerun()
+
+with st.sidebar:
+    if st.session_state.feedback:
+        
+        import json
+        feedback_data = {
+            "chat_history": st.session_state.chat_history,
+            "feedback": st.session_state.feedback
+        }
+        st.download_button(
+            "Download Feedback",
+            data=json.dumps(feedback_data, indent=2, ensure_ascii=False),
+            file_name="chatbot_feedback.json",
+            mime="application/json"
+        )
