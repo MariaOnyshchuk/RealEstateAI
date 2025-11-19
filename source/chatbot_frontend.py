@@ -3,8 +3,9 @@ import chatbot_backend as backend
 from agent import Agent
 from router import Router
 from summarizer import Summarizer
+from agents.base_agent import ParameterExtractor
 
-st.title("Real Estate Chatbot 🤖")
+st.title("Real Estate Chatbot 🏠")
 
 # print(st.session_state)
 if 'store' not in st.session_state:
@@ -20,58 +21,99 @@ if 'chat_history' not in st.session_state:
 
 router = Router(backend._bedrock_llm)
 summarizer = Summarizer(backend._bedrock_llm)
+extractor = ParameterExtractor(backend._bedrock_llm)
 
-family_agent = Agent(backend._bedrock_llm, 'family')
-investor_agent = Agent(backend._bedrock_llm, 'investor')
-young_professional_agent = Agent(backend._bedrock_llm, 'young_professional')
+from agents.base_agent import FamilyAgent, InvestorAgent, YoungProfessionalAgent
+
+family_agent = FamilyAgent(backend._bedrock_llm)
+investor_agent = InvestorAgent(backend._bedrock_llm)
+young_professional_agent = YoungProfessionalAgent(backend._bedrock_llm)
 
 agents = [family_agent, investor_agent, young_professional_agent]
 
-# Display chat history
 for message in st.session_state.chat_history: 
     with st.chat_message(message["role"]): 
         st.markdown(message["text"]) 
+        # Show extracted params if they exist
+        if "params" in message and message["params"]:
+            with st.expander("🔍 Extracted Search Parameters"):
+                st.json(message["params"])
 
-# Chat input
 user_input = st.chat_input("Ask me anything...")
 if user_input: 
-    # Display user message
     with st.chat_message("user"): 
         st.markdown(user_input) 
-    st.session_state.chat_history.append({"role":"user", "text":user_input}) 
+
+    st.session_state.chat_history.append({
+        "role": "user",
+        "text": user_input
+    })
 
     question = user_input
 
+    with st.spinner("🔍 Analyzing your query..."):
+        search_params = extractor.extract(question)
 
-    output, router_response = router.select_models(question)
-    print(f'{router_response=}')
+    print(f"DEBUG: Extracted Params: {search_params}")
+
+    if search_params:
+        with st.chat_message("assistant"):
+            st.info("📋 **I found these search parameters:**")
+            st.markdown(search_params)
+
+        st.session_state.chat_history.append({
+            "role": "assistant",
+            "text": f"📋 **I found these search parameters:**\n{search_params}",
+            "params": search_params
+        })
+
+    with st.spinner("🤖 Selecting the right agents..."):
+        _, router_response = router.select_models(question)
+
+    print(f'Router selected: {router_response}')
+
     selected_agents = []
-
     for model in router_response:
         for agent in agents:
             if model == agent.agent_type:
                 selected_agents.append(agent)
 
-    with st.chat_message("assistant"): 
-        st.markdown(output)
+    if not selected_agents:
+        st.warning("No agents were selected. Using all agents.")
+        selected_agents = agents
 
-    # Get AI response
-    # ai_response = backend.get_ai_response(user_input, st.session_state.store)
-    # ai_family_response = family_agent.infer(question)
     responses = []
 
     for agent in selected_agents:
+        with st.spinner(f"💭 {agent.agent_type.replace('_', ' ').title()} is thinking..."):
+            print(f"DEBUG: Extracted Question: {question}")
+            print(f"DEBUG: Extracted search_params: {search_params}")
+            ai_response = agent.infer(question, search_params)
 
-        ai_response = agent.infer(question)
         responses.append((agent.agent_type, ai_response))
-                                                
-        with st.chat_message("assistant"): 
-            st.markdown(f"[{agent.agent_type}]:\n" + ai_response)
 
-    if len(selected_agents) > 1:
-        summarization = summarizer.infer(str(responses))
         with st.chat_message("assistant"): 
-            st.markdown(f"[Summary]:\n" + summarization)
-    
-        # st.markdown(answers[-1].content)
-    # st.session_state.chat_history.append({"role":"assistant", "text":ai_response}) 
+            agent_name = agent.agent_type.replace('_', ' ').title()
+            st.markdown(f"**[{agent_name}]:**")
+            st.markdown(ai_response)
+
+        st.session_state.chat_history.append({
+            "role": "assistant",
+            "text": f"**[{agent_name}]:**\n{ai_response}"
+        })
+
+    # --- STEP 4: Summarize (if multiple agents responded) ---
+    if len(selected_agents) > 1:
+        with st.spinner("📝 Creating summary..."):
+            summarization = summarizer.infer(str(responses))
+
+        with st.chat_message("assistant"): 
+            st.markdown("---")
+            st.markdown(f"**[Summary]:**")
+            st.markdown(summarization)
+
+        # Store summary in chat history
+        st.session_state.chat_history.append({
+            "role": "assistant",
+            "text": f"**[Summary]:**\n{summarization}"
+        })
