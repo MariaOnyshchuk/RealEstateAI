@@ -22,7 +22,7 @@ db = SQLDatabase.from_uri("sqlite:///geeks2.db")
 
 print(f"Dialect: {db.dialect}")
 print(f"Available tables: {db.get_usable_table_names()}")
-print(f'Sample output: {db.run("SELECT * FROM STUDENT LIMIT 5;")}')
+print(f'Sample output: {db.run("SELECT * FROM DB LIMIT 5;")}')
 
 from langchain_community.agent_toolkits import SQLDatabaseToolkit
 
