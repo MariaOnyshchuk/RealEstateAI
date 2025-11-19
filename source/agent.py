@@ -10,7 +10,7 @@ from langgraph.graph import END, START, MessagesState, StateGraph
 
 class Agent:
 
-    def __init__(self, llm):
+    def __init__(self, llm, agent_type):
 
         db = SQLDatabase.from_uri("sqlite:///geeks2.db")
 
@@ -38,9 +38,10 @@ class Agent:
         self.run_query_node = ToolNode([self.run_query_tool], name="run_query")
 
         self.generate_query_system_prompt = """
-        You are an agent designed to interact with a SQL database.
+        You are an agent designed to interact with a SQL database. You have a database with different 
+        real estate listings, and you should target offers that are best suitable for {agent_type}.
         Given an input question, create a syntactically correct {dialect} query to run,
-        then look at the results of the query and return the answer. Unless the user
+        then look at the results of the query, analyse the result based on your target_offers {agent_type} and return the answer. Unless the user
         specifies a specific number of examples they wish to obtain, always limit your
         query to at most {top_k} results.
 
@@ -52,6 +53,7 @@ class Agent:
         """.format(
             dialect=db.dialect,
             top_k=5,
+            agent_type=agent_type
         )
 
         self.check_query_system_prompt = """
