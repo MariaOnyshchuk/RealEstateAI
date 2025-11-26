@@ -69,11 +69,6 @@ from agents.base_agent import (
     AgentResponse
 )
 
-st.set_page_config(
-    page_title="Real Estate Chatbot",
-    page_icon="🏠",
-    layout="wide"
-)
 st.title("Real Estate Chatbot 🏠")
 
 # Initialize session state
