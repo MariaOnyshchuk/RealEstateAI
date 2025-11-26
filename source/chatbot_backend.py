@@ -1,7 +1,6 @@
 import os
 from langchain_classic.memory import ConversationSummaryBufferMemory
-# from langchain.memory.buffer import ConversationBufferMemory
-# from langchain.chains import ConversationChain
+
 from langchain_core.chat_history import InMemoryChatMessageHistory
 from langchain_core.runnables.history import RunnableWithMessageHistory
 from langchain_core.messages import AIMessage, HumanMessage
@@ -44,16 +43,10 @@ def create_chat_memory():
 
 def get_ai_response(user_input, store_new):
     """Get AI response with memory"""
-    # conversation_chain = ConversationChain(
-    #     llm=get_bedrock_client(), 
-    #     memory=chat_memory, 
-    #     verbose=True
-    # )
-    # return conversation_chain.invoke(user_input)['response']
     global store
     store = store_new
 
-    # RunnableWithMessageHistory()
+
     llm = get_bedrock_client()
 
     conversation_chain = RunnableWithMessageHistory(llm, get_session_history=get_session_history)
@@ -61,8 +54,6 @@ def get_ai_response(user_input, store_new):
         user_input,
         config={"configurable": {"session_id": "1"}},
     )
-
-    # print(f'\n\nres: {res.__dict__}\n\n')
 
     return res.content
 
