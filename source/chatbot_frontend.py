@@ -1,6 +1,7 @@
 import streamlit as st 
+import pandas as pd
+import json
 import chatbot_backend as backend
-from agent import Agent
 from router import Router
 from summarizer import Summarizer
 from agents.base_agent import ParameterExtractor
@@ -47,6 +48,32 @@ def handle_feedback(idx, user_prompt, ai_text, vote_type):
     else:
         print(f"Could not find user prompt for message {idx}")
 
+from agents.base_agent import (
+    ParameterExtractor,
+    FamilyAgent,
+    InvestorAgent,
+    YoungProfessionalAgent,
+    AgentResponse
+)
+
+st.set_page_config(
+    page_title="Real Estate Chatbot",
+    page_icon="🏠",
+    layout="wide"
+)
+from agents.base_agent import (
+    ParameterExtractor,
+    FamilyAgent,
+    InvestorAgent,
+    YoungProfessionalAgent,
+    AgentResponse
+)
+
+st.set_page_config(
+    page_title="Real Estate Chatbot",
+    page_icon="🏠",
+    layout="wide"
+)
 st.title("Real Estate Chatbot 🏠")
 
 # Initialize session state
@@ -64,26 +91,257 @@ if 'chat_history' not in st.session_state:
 if 'feedback' not in st.session_state:
     st.session_state.feedback = {}
 
+# Initialize components
 router = Router(backend._bedrock_llm)
 summarizer = Summarizer(backend._bedrock_llm)
 extractor = ParameterExtractor(backend._bedrock_llm)
+
 
 family_agent = FamilyAgent(backend._bedrock_llm)
 investor_agent = InvestorAgent(backend._bedrock_llm)
 young_professional_agent = YoungProfessionalAgent(backend._bedrock_llm)
 
-agents = [family_agent, investor_agent, young_professional_agent]
+agents = {
+    'family': family_agent,
+    'investor': investor_agent,
+    'young_professional': young_professional_agent
+}
+
+
+def format_params_display(params: dict) -> str:
+    """Format extracted parameters for nice display"""
+    if not params:
+        return "No specific parameters extracted"
+
+    display_parts = []
+
+    if params.get("location"):
+        display_parts.append(f"📍 **Location:** {params['location']}")
+
+    price_parts = []
+    if params.get("price_min"):
+        price_parts.append(f"${params['price_min']:,}")
+    if params.get("price_max"):
+        if price_parts:
+            price_parts.append(f"${params['price_max']:,}")
+        else:
+            price_parts.append(f"up to ${params['price_max']:,}")
+    if price_parts:
+        display_parts.append(f"💰 **Price:** {' - '.join(price_parts)}")
+
+    if params.get("bedrooms_min") or params.get("bedrooms_max"):
+        bed_str = ""
+        if params.get("bedrooms_min") and params.get("bedrooms_max"):
+            bed_str = f"{params['bedrooms_min']}-{params['bedrooms_max']}"
+        elif params.get("bedrooms_min"):
+            bed_str = f"{params['bedrooms_min']}+"
+        else:
+            bed_str = f"up to {params['bedrooms_max']}"
+        display_parts.append(f"🛏️ **Bedrooms:** {bed_str}")
+
+    if params.get("bathrooms_min") or params.get("bathrooms_max"):
+        bath_str = ""
+        if params.get("bathrooms_min") and params.get("bathrooms_max"):
+            bath_str = f"{params['bathrooms_min']}-{params['bathrooms_max']}"
+        elif params.get("bathrooms_min"):
+            bath_str = f"{params['bathrooms_min']}+"
+        else:
+            bath_str = f"up to {params['bathrooms_max']}"
+        display_parts.append(f"🚿 **Bathrooms:** {bath_str}")
+
+    if params.get("size_min") or params.get("size_max"):
+        size_str = ""
+        if params.get("size_min") and params.get("size_max"):
+            size_str = f"{params['size_min']:,}-{params['size_max']:,} sqft"
+        elif params.get("size_min"):
+            size_str = f"{params['size_min']:,}+ sqft"
+        else:
+            size_str = f"up to {params['size_max']:,} sqft"
+        display_parts.append(f"📏 **Size:** {size_str}")
+
+    if params.get("property_type"):
+        display_parts.append(f"🏘️ **Type:** {params['property_type'].title()}")
+
+    if params.get("amenities"):
+        amenities_str = ", ".join(params['amenities'])
+        display_parts.append(f"✨ **Amenities:** {amenities_str}")
+
+    if params.get("preferences"):
+        prefs_str = ", ".join(params['preferences'])
+        display_parts.append(f"💭 **Preferences:** {prefs_str}")
+
+    if params.get("lifestyle"):
+        display_parts.append(f"👤 **Lifestyle:** {params['lifestyle'].replace('_', ' ').title()}")
+
+    return "\n".join(display_parts)
+
+
+def display_properties_table(properties: list, agent_name: str = ""):
+    """Display properties in a nice Streamlit table"""
+    if not properties:
+        st.info("No properties found matching your criteria.")
+        return
+
+    df_data = []
+    for prop in properties:
+        df_data.append({
+            "Address": prop.address,
+            "Price": f"${prop.price:,.0f}" if prop.price else "N/A",
+            "Beds": prop.bedrooms if prop.bedrooms else "N/A",
+            "Baths": prop.bathrooms if prop.bathrooms else "N/A",
+            "Size": f"{prop.size:,.0f} sqft" if prop.size else "N/A",
+            "Type": prop.property_type.title() if prop.property_type else "N/A",
+            "ROI": f"{prop.roi:.1f}%" if prop.roi else "N/A",
+            "URL": prop.property_url if prop.property_url else "N/A"
+        })
+
+    df = pd.DataFrame(df_data)
+
+    st.dataframe(
+        df,
+        width='stretch',
+        hide_index=True,
+        column_config={
+            "URL": st.column_config.LinkColumn("Property Link")
+        }
+    )
+
+def create_unified_response(question: str, agent_responses: list, llm) -> AgentResponse:
+    """
+    Create a single unified response from multiple agent responses.
+    Synthesizes insights and deduplicates properties.
+    """
+    try:
+        # Collect all properties from all agents
+        all_properties = []
+        agent_summaries = []
+
+        for agent_type, response in agent_responses:
+            agent_name = agent_type.replace('_', ' ').title()
+            agent_summaries.append({
+                "agent": agent_name,
+                "perspective": response.summary,
+                "property_count": len(response.top_properties)
+            })
+
+            # Add properties with agent attribution
+            for prop in response.top_properties:
+                all_properties.append({
+                    "agent_source": agent_name,
+                    "property": prop
+                })
+
+        # Deduplicate properties by address
+        seen_addresses = {}
+        unique_properties = []
+
+        for item in all_properties:
+            prop = item["property"]
+            address_key = prop.address.lower().strip()
+
+            if address_key not in seen_addresses:
+                seen_addresses[address_key] = prop
+                unique_properties.append(prop)
+
+        # Rank properties by a composite score
+        # Consider: price (normalized), ROI, number of bedrooms
+        def score_property(prop):
+            score = 0
+            if prop.roi:
+                score += prop.roi * 10  # ROI heavily weighted
+            if prop.bedrooms:
+                score += prop.bedrooms * 2  # More bedrooms = higher score
+            if prop.price:
+                # Normalize price (lower is better up to a point)
+                if prop.price < 300000:
+                    score += 5
+                elif prop.price < 500000:
+                    score += 3
+            return score
+
+        # Sort by composite score
+        unique_properties.sort(key=score_property, reverse=True)
+
+        # Take top 10 properties
+        top_properties = unique_properties[:10]
+
+        # Create unified summary using LLM
+        synthesis_prompt = f"""You are creating a unified, comprehensive answer for a real estate query.
+
+Original Question: "{question}"
+
+We consulted three specialized real estate agents (Family, Investor, Young Professional) and received these perspectives:
+
+{json.dumps(agent_summaries, indent=2)}
+
+We found {len(unique_properties)} total unique properties across all agents.
+
+Your task: Create ONE cohesive summary that:
+1. Explains that we analyzed the query from multiple expert perspectives
+2. Synthesizes the key insights from all three agents into a unified narrative
+3. Highlights what makes the recommended properties suitable
+4. Addresses different aspects (family-friendliness, investment potential, lifestyle fit)
+5. Provides actionable guidance without repeating information
+6. Keeps it concise (3-4 paragraphs maximum)
+
+Important: Write as if you're a single expert who considered all angles, NOT as separate agent responses.
+Do not use phrases like "The Family Agent said..." - instead synthesize into unified insights.
+
+Return ONLY the summary text, no JSON or formatting."""
+
+        unified_summary = llm.invoke([
+            {"role": "system", "content": "You are a comprehensive real estate advisor."},
+            {"role": "user", "content": synthesis_prompt}
+        ]).content
+
+        return AgentResponse(
+            summary=unified_summary.strip(),
+            top_properties=top_properties
+        )
+
+    except Exception as e:
+        print(f"Error creating unified response: {e}")
+        # Fallback to simple combination
+        combined_summary = f"Based on comprehensive analysis from multiple expert perspectives:\n\n"
+
+        for agent_type, response in agent_responses:
+            agent_name = agent_type.replace('_', ' ').title()
+            combined_summary += f"**{agent_name} Perspective:** {response.summary}\n\n"
+
+        # Just use first agent's properties as fallback
+        fallback_properties = agent_responses[0][1].top_properties if agent_responses else []
+
+        return AgentResponse(
+            summary=combined_summary,
+            top_properties=fallback_properties
+        )
+
+
+def display_agent_response(agent_response: AgentResponse, agent_name: str):
+    st.markdown(f"### {agent_name}")
+
+    if agent_response.summary:
+        st.markdown(agent_response.summary)
+
+    if agent_response.top_properties:
+        st.markdown("#### 🏠 Recommended Properties")
+        display_properties_table(agent_response.top_properties, agent_name)
+    else:
+        st.info("No properties found for this search.")
+
 
 for idx, message in enumerate(st.session_state.chat_history): 
     with st.chat_message(message["role"]): 
         st.markdown(message["text"])
         
-        # Display extracted parameters if available
-        if "params" in message and message["params"]:
+        if message["role"] == "assistant" and "params" in message and message["params"]:
             with st.expander("🔍 Extracted Search Parameters"):
-                st.json(message["params"])
+                st.markdown(format_params_display(message["params"]))
         
-        if message["role"] == "assistant":
+        if message["role"] == "assistant" and "properties" in message and message["properties"]:
+            display_properties_table(message["properties"])
+
+        if message["role"] == "assistant" and message.get("allow_feedback", False):
             col1, col2, col3 = st.columns([1, 1, 10])
             
             user_prompt = get_last_user_prompt(st.session_state.chat_history, idx)
@@ -109,8 +367,10 @@ for idx, message in enumerate(st.session_state.chat_history):
                     feedback_icon = "👍" if st.session_state.feedback[idx] == "like" else "👎"
                     st.caption(f"Feedback recorded: {feedback_icon}")
 
-user_input = st.chat_input("Ask me anything...")
+user_input = st.chat_input("Ask me anything about real estate...")
+
 if user_input: 
+    # Display user message
     with st.chat_message("user"): 
         st.markdown(user_input) 
 
@@ -122,68 +382,229 @@ if user_input:
     question = user_input
 
     with st.spinner("🔍 Analyzing your query..."):
-        search_params = extractor.extract(question)
+        try:
+            search_params = extractor.extract(question)
+        except Exception as e:
+            st.error(f"Error extracting parameters: {e}")
+            search_params = {"raw_query": question}
 
     print(f"DEBUG: Extracted Params: {search_params}")
 
-    if search_params:
+    # Display extracted parameters
+    if search_params and any(v for k, v in search_params.items() if k not in ['raw_query', 'keywords']):
         with st.chat_message("assistant"):
-            st.info("📋 **I found these search parameters:**")
-            st.markdown(search_params)
+            st.markdown("### 📋 Search Parameters")
+            st.markdown(format_params_display(search_params))
 
         st.session_state.chat_history.append({
             "role": "assistant",
-            "text": f"📋 **I found these search parameters:**\n{search_params}",
-            "params": search_params
+            "text": "### 📋 Search Parameters\n" + format_params_display(search_params),
+            "params": search_params,
+            "allow_feedback": False
         })
 
-    with st.spinner("🤖 Selecting the right agents..."):
-        _, router_response = router.select_models(question)
+    # Select agents using router
+    with st.spinner("🤖 Analyzing query and selecting agents..."):
+        try:
+            scores, router_response = router.select_models(question)
+            print(f'Router scores: {scores}')
+            print(f'Router selected: {router_response}')
 
-    print(f'Router selected: {router_response}')
+            # Determine if this is an ambiguous query (all agents consulted)
+            is_ambiguous_query = len(router_response) == len(agents)
 
+            if is_ambiguous_query:
+                st.info("🔀 Query is ambiguous - consulting all agents for unified comprehensive answer")
+            else:
+                selected_names = [name.replace('_', ' ').title() for name in router_response]
+                st.info(f"🎯 Routing to: {', '.join(selected_names)}")
+
+        except Exception as e:
+            st.warning(f"Router error: {e}. Using all agents.")
+            router_response = ['family', 'investor', 'young_professional']
+            scores = {agent: 0.33 for agent in router_response}
+            is_ambiguous_query = True
+
+    # Get selected agents
     selected_agents = []
-    for model in router_response:
-        for agent in agents:
-            if model == agent.agent_type:
-                selected_agents.append(agent)
+    for model_type in router_response:
+        if model_type in agents:
+            selected_agents.append((model_type, agents[model_type]))
 
+    # Fallback to all agents if none selected
     if not selected_agents:
-        st.warning("No agents were selected. Using all agents.")
-        selected_agents = agents
+        st.info("No specific agents selected. Using all available agents.")
+        selected_agents = [(k, v) for k, v in agents.items()]
+        is_ambiguous_query = True
 
     responses = []
 
-    for agent in selected_agents:
-        with st.spinner(f"💭 {agent.agent_type.replace('_', ' ').title()} is thinking..."):
-            print(f"DEBUG: Question: {question}")
-            print(f"DEBUG: search_params: {search_params}")
-            ai_response = agent.infer(question, search_params)
 
-        responses.append((agent.agent_type, ai_response))
+    for agent_type, agent in selected_agents:
+        agent_name = agent_type.replace('_', ' ').title() + " Agent"
 
-        with st.chat_message("assistant"): 
-            agent_name = agent.agent_type.replace('_', ' ').title()
-            st.markdown(f"**[{agent_name}]:**")
-            st.markdown(ai_response)
+        with st.spinner(f"💭 {agent_name} is analyzing properties..."):
+            try:
+                print(f"DEBUG: Calling {agent_type} with question: {question}")
+                print(f"DEBUG: search_params: {search_params}")
+
+                ai_response = agent.infer(question, search_params)
+
+                if not isinstance(ai_response, AgentResponse):
+                    if isinstance(ai_response, dict):
+                        ai_response = AgentResponse.model_validate(ai_response)
+                    else:
+                        ai_response = AgentResponse(
+                            summary=str(ai_response),
+                            top_properties=[]
+                        )
+
+            except Exception as e:
+                st.error(f"Error from {agent_name}: {e}")
+                print(f"ERROR in {agent_type}: {e}")
+                ai_response = AgentResponse(
+                    summary=f"Error processing request: {str(e)}",
+                    top_properties=[]
+                )
+
+        responses.append((agent_type, ai_response))
+    if is_ambiguous_query:
+        # Create unified response from all agents
+        with st.spinner("🎯 Creating unified comprehensive answer..."):
+            unified_response = create_unified_response(question, responses, backend._bedrock_llm)
+
+        # Display ONLY the unified response
+        with st.chat_message("assistant"):
+            st.markdown("### 🎯 Comprehensive Analysis")
+            st.markdown(unified_response.summary)
+
+            if unified_response.top_properties:
+                st.markdown("#### 🏠 Top Recommended Properties")
+                display_properties_table(unified_response.top_properties)
 
         st.session_state.chat_history.append({
             "role": "assistant",
-            "text": f"**[{agent_name}]:**\n{ai_response}"
+            "text": f"### 🎯 Comprehensive Analysis\n\n{unified_response.summary}",
+            "properties": unified_response.top_properties,
+            "allow_feedback": True
         })
+    else:
 
-    if len(selected_agents) > 1:
-        with st.spinner("📝 Creating summary..."):
-            summarization = summarizer.infer(str(responses))
+        for agent_type, ai_response in responses:
+            agent_name = agent_type.replace('_', ' ').title() + " Agent"
+
+            with st.chat_message("assistant"):
+                display_agent_response(ai_response, agent_name)
+
+            # Store in chat history
+            response_text = f"**{agent_name}**\n\n{ai_response.summary}"
+            st.session_state.chat_history.append({
+                "role": "assistant",
+                "text": response_text,
+                "properties": ai_response.top_properties,
+                "agent_type": agent_type,
+                "allow_feedback": True
+            })
+
+    if len(selected_agents) > 1 and not is_ambiguous_query:
+        with st.spinner("📝 Creating comprehensive summary..."):
+            try:
+                is_ambiguous = len(selected_agents) == len(agents)
+                summary_input = {
+                    "query": question,
+                    "is_ambiguous": is_ambiguous,
+                    "agent_responses": []
+                }
+
+
+
+                # summary_input = []
+                for agent_type, response in responses:
+                    summary_input["agent_responses"].append({
+                        "agent": agent_type.replace('_', ' ').title(),
+                        "summary": response.summary,
+                        "property_count": len(response.top_properties),
+                        "sample_properties": [
+                            {
+                                "address": prop.address,
+                                "price": prop.price,
+                                "bedrooms": prop.bedrooms
+                            }
+                            for prop in response.top_properties[:2]  # Just top 2 for summary
+                        ]
+                    })
+
+                summary_prompt = f"""Multiple specialized agents responded to: "{question}"
+
+{json.dumps(summary_input["agent_responses"], indent=2, default=str)}
+
+Create a concise summary that:
+1. Synthesizes the key points from each agent's perspective
+2. Highlights areas of agreement and difference
+3. Provides overall guidance based on all perspectives
+4. Keeps it brief (2-3 paragraphs)"""
+                summarization = backend._bedrock_llm.invoke([
+                    {"role": "system", "content": "You are a real estate assistant creating perspective summaries."},
+                    {"role": "user", "content": summary_prompt}
+                ]).content
+            except Exception as e:
+                st.warning(f"Could not generate summary: {e}")
+                summarization = "Multiple specialized agents provided recommendations based on their expertise. Please review each agent's suggestions above."
 
         with st.chat_message("assistant"): 
             st.markdown("---")
-            st.markdown(f"**[Summary]:**")
+            st.markdown("### 📊 Summary of Perspectives")
             st.markdown(summarization)
 
         st.session_state.chat_history.append({
             "role": "assistant",
-            "text": f"**[Summary]:**\n{summarization}"
+            "text": f"### 📊 Summary of Perspectives\n\n{summarization}",
+            "allow_feedback": True
         })
     
     st.rerun()
+
+with st.sidebar:
+    st.header("⚙️ Settings")
+
+    if st.button("🗑️ Clear Chat History"):
+        st.session_state.chat_history = []
+        st.session_state.feedback = {}
+        st.rerun()
+
+    if st.session_state.feedback:
+        st.markdown("---")
+        st.subheader("📊 Chat Statistics")
+        likes = len([f for f in st.session_state.feedback.values() if f == "like"])
+        dislikes = len([f for f in st.session_state.feedback.values() if f == "dislike"])
+        st.metric("👍 Likes", likes)
+        st.metric("👎 Dislikes", dislikes)
+
+    if st.session_state.feedback:
+        st.markdown("---")
+        st.subheader("💾 Export Data")
+        
+        feedback_data = {
+            "timestamp": pd.Timestamp.now().isoformat(),
+            "chat_history": st.session_state.chat_history,
+            "feedback": st.session_state.feedback
+        }
+
+        st.download_button(
+            label="📥 Download Feedback",
+            data=json.dumps(feedback_data, indent=2, default=str),
+            file_name=f"chatbot_feedback_{pd.Timestamp.now().strftime('%Y%m%d_%H%M%S')}.json",
+            mime="application/json"
+        )
+
+    st.markdown("---")
+    st.subheader("💡 Tips")
+    st.markdown("""
+    **You can ask:**
+    - Specific queries: *"3 bed house in Seattle under $500k"*
+    - Abstract requests: *"cozy place near downtown"*
+    - Lifestyle-based: *"good for families with kids"*
+    - Investment focused: *"properties with high ROI"*
+
+    The chatbot understands natural language!
+    """)
