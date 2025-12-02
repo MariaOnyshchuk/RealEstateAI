@@ -53,7 +53,6 @@ st.set_page_config(
     layout="wide"
 )
 
-
 st.title("Real Estate Chatbot 🏠")
 
 if 'store' not in st.session_state:
