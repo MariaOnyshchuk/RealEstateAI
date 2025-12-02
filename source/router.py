@@ -1,5 +1,6 @@
 from langchain.agents import create_agent
 from typing import List, Dict, Tuple
+from agents.prompts import ROUTER_SYSTEM_PROMPT
 import re
 
 
@@ -24,7 +25,7 @@ class Router:
                 "good schools", "raising kids", "raise a family", "school district",
                 "safe neighborhood", "family home", "kids room", "play area"
             ],
-            "anti_keywords": []  # Keywords that reduce family score
+            "anti_keywords": []
         },
         "investor": {
             "keywords": [
@@ -65,32 +66,7 @@ class Router:
         self.llm = llm
         self.agent = create_agent(
             llm,
-            system_prompt="""You are an intelligent query analyzer for real estate searches.
-
-Your task: Analyze the user's query and determine which agent types are most relevant.
-
-Agent Types:
-- family: Families with children, school needs, safety, suburban living
-- investor: Real estate investors, ROI-focused, rental income, property value
-- young_professional: Urban lifestyle, downtown, nightlife, transit, modern amenities
-
-Return ONLY a JSON object with confidence scores (0.0 to 1.0):
-{"family": 0.85, "investor": 0.1, "young_professional": 0.3}
-
-Rules:
-- If query clearly matches one type: give it 0.8-1.0
-- If query is ambiguous or general: give similar scores to multiple types (0.4-0.6)
-- If query mentions multiple aspects: score all relevant types accordingly
-- Minimum score is 0.0, maximum is 1.0
-
-Examples:
-"Good schools for my kids" → {"family": 0.95, "investor": 0.1, "young_professional": 0.05}
-"High ROI properties" → {"family": 0.1, "investor": 0.95, "young_professional": 0.1}
-"Walkable downtown area" → {"family": 0.2, "investor": 0.3, "young_professional": 0.9}
-"Nice place to live" → {"family": 0.5, "investor": 0.4, "young_professional": 0.5}
-"3 bedroom house" → {"family": 0.6, "investor": 0.5, "young_professional": 0.3}
-
-Return ONLY the JSON object, nothing else."""
+            system_prompt= ROUTER_SYSTEM_PROMPT
         )
 
     def calculate_keyword_scores(self, question: str) -> Dict[str, float]:
@@ -185,37 +161,30 @@ Return ONLY the JSON object, nothing else."""
         Returns:
             (confidences_dict, selected_agents_list)
         """
-        # Step 1: Calculate keyword-based scores
         keyword_scores = self.calculate_keyword_scores(question)
         print(f"Keyword scores: {keyword_scores}")
 
-        # Step 2: Get LLM-based scores
         llm_scores = self.infer_llm(question)
         print(f"LLM scores: {llm_scores}")
 
-        # Step 3: Combine scores
         final_scores = self.combine_scores(keyword_scores, llm_scores)
         print(f"Final combined scores: {final_scores}")
 
-        # Step 4: Determine ambiguity
         max_score = max(final_scores.values())
         min_score = min(final_scores.values())
         score_range = max_score - min_score
 
         selected_agents = []
 
-        # Check if query is ambiguous (all scores are similar)
         if score_range < ambiguity_threshold:
             print(f"Ambiguous query detected (score range: {score_range:.3f})")
             print("Routing to ALL agents for comprehensive response")
             selected_agents = self.AVAILABLE_MODELS.copy()
         else:
-            # Select agents above threshold
             for agent_type, score in final_scores.items():
                 if score >= confidence_threshold:
                     selected_agents.append(agent_type)
 
-            # If no agents selected, use the highest scoring one
             if not selected_agents:
                 best_agent = max(final_scores.items(), key=lambda x: x[1])
                 selected_agents.append(best_agent[0])

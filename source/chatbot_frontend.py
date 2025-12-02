@@ -4,8 +4,7 @@ import json
 import chatbot_backend as backend
 from router import Router
 from summarizer import Summarizer
-from agents.base_agent import ParameterExtractor
-from agents.base_agent import FamilyAgent, InvestorAgent, YoungProfessionalAgent
+from agents.base_agent import ParameterExtractor, AgentResponse, SpecializedAgent, Property
 import json
 import os
 
@@ -48,65 +47,36 @@ def handle_feedback(idx, user_prompt, ai_text, vote_type):
     else:
         print(f"Could not find user prompt for message {idx}")
 
-from agents.base_agent import (
-    ParameterExtractor,
-    FamilyAgent,
-    InvestorAgent,
-    YoungProfessionalAgent,
-    AgentResponse
-)
-
 st.set_page_config(
     page_title="Real Estate Chatbot",
     page_icon="🏠",
     layout="wide"
 )
-from agents.base_agent import (
-    ParameterExtractor,
-    FamilyAgent,
-    InvestorAgent,
-    YoungProfessionalAgent,
-    AgentResponse
-)
 
-st.set_page_config(
-    page_title="Real Estate Chatbot",
-    page_icon="🏠",
-    layout="wide"
-)
+
 st.title("Real Estate Chatbot 🏠")
 
-# Initialize session state
 if 'store' not in st.session_state:
     st.session_state.store = {}
 
-# Initialize chat memory
 if 'chat_memory' not in st.session_state: 
     st.session_state.chat_memory = backend.create_chat_memory()
 
-# Initialize chat history
 if 'chat_history' not in st.session_state:
     st.session_state.chat_history = []
 
 if 'feedback' not in st.session_state:
     st.session_state.feedback = {}
 
-# Initialize components
 router = Router(backend._bedrock_llm)
 summarizer = Summarizer(backend._bedrock_llm)
 extractor = ParameterExtractor(backend._bedrock_llm)
 
 
-family_agent = FamilyAgent(backend._bedrock_llm)
-investor_agent = InvestorAgent(backend._bedrock_llm)
-young_professional_agent = YoungProfessionalAgent(backend._bedrock_llm)
-
 agents = {
-    'family': family_agent,
-    'investor': investor_agent,
-    'young_professional': young_professional_agent
+    agent_type: SpecializedAgent(backend._bedrock_llm, agent_type)
+    for agent_type in ['family', 'investor', 'young_professional']
 }
-
 
 def format_params_display(params: dict) -> str:
     """Format extracted parameters for nice display"""
@@ -176,7 +146,7 @@ def format_params_display(params: dict) -> str:
     return "\n".join(display_parts)
 
 
-def display_properties_table(properties: list, agent_name: str = ""):
+def display_properties_table(properties, agent_name: str = ""):
     """Display properties in a nice Streamlit table"""
     if not properties:
         st.info("No properties found matching your criteria.")
@@ -185,14 +155,14 @@ def display_properties_table(properties: list, agent_name: str = ""):
     df_data = []
     for prop in properties:
         df_data.append({
-            "Address": prop.address,
-            "Price": f"${prop.price:,.0f}" if prop.price else "N/A",
-            "Beds": prop.bedrooms if prop.bedrooms else "N/A",
-            "Baths": prop.bathrooms if prop.bathrooms else "N/A",
-            "Size": f"{prop.size:,.0f} sqft" if prop.size else "N/A",
-            "Type": prop.property_type.title() if prop.property_type else "N/A",
+            "Address": prop.full_street_line or "N/A",
+            "Price": f"${prop.list_price:,.0f}" if prop.list_price else "N/A",
+            "Beds": prop.beds if prop.beds is not None else "N/A",
+            "Baths": prop.full_baths if prop.full_baths is not None else "N/A",
+            "Size": f"{prop.sqft:,.0f} sqft" if prop.sqft else "N/A",
+            "Type": prop.style.title() if prop.style else "N/A",
             "ROI": f"{prop.roi:.1f}%" if prop.roi else "N/A",
-            "URL": prop.property_url if prop.property_url else "N/A"
+            "URL": prop.property_url or "N/A"
         })
 
     df = pd.DataFrame(df_data)
@@ -206,13 +176,10 @@ def display_properties_table(properties: list, agent_name: str = ""):
         }
     )
 
+
 def create_unified_response(question: str, agent_responses: list, llm) -> AgentResponse:
-    """
-    Create a single unified response from multiple agent responses.
-    Synthesizes insights and deduplicates properties.
-    """
+
     try:
-        # Collect all properties from all agents
         all_properties = []
         agent_summaries = []
 
@@ -224,56 +191,42 @@ def create_unified_response(question: str, agent_responses: list, llm) -> AgentR
                 "property_count": len(response.top_properties)
             })
 
-            # Add properties with agent attribution
             for prop in response.top_properties:
                 all_properties.append({
                     "agent_source": agent_name,
                     "property": prop
                 })
 
-        # Deduplicate properties by address
-        seen_addresses = {}
+        seen_addresses = set()
         unique_properties = []
-
         for item in all_properties:
             prop = item["property"]
-            address_key = prop.address.lower().strip()
+            address_key = (prop.full_street_line or prop.property_url)
 
             if address_key not in seen_addresses:
-                seen_addresses[address_key] = prop
+                seen_addresses.add(address_key)
                 unique_properties.append(prop)
+        print('UNIQUE PROPS:', len(unique_properties))
 
-        # Rank properties by a composite score
-        # Consider: price (normalized), ROI, number of bedrooms
         def score_property(prop):
             score = 0
             if prop.roi:
-                score += prop.roi * 10  # ROI heavily weighted
-            if prop.bedrooms:
-                score += prop.bedrooms * 2  # More bedrooms = higher score
-            if prop.price:
-                # Normalize price (lower is better up to a point)
-                if prop.price < 300000:
+                score += prop.roi * 10
+            if prop.beds:
+                score += prop.beds * 2
+            if prop.list_price:
+                if prop.list_price < 300_000:
                     score += 5
-                elif prop.price < 500000:
+                elif prop.list_price < 500_000:
                     score += 3
             return score
 
-        # Sort by composite score
         unique_properties.sort(key=score_property, reverse=True)
-
-        # Take top 10 properties
-        top_properties = unique_properties[:10]
-
-        # Create unified summary using LLM
+        top_properties = unique_properties
         synthesis_prompt = f"""You are creating a unified, comprehensive answer for a real estate query.
-
 Original Question: "{question}"
-
 We consulted three specialized real estate agents (Family, Investor, Young Professional) and received these perspectives:
-
 {json.dumps(agent_summaries, indent=2)}
-
 We found {len(unique_properties)} total unique properties across all agents.
 
 Your task: Create ONE cohesive summary that:
@@ -286,7 +239,6 @@ Your task: Create ONE cohesive summary that:
 
 Important: Write as if you're a single expert who considered all angles, NOT as separate agent responses.
 Do not use phrases like "The Family Agent said..." - instead synthesize into unified insights.
-
 Return ONLY the summary text, no JSON or formatting."""
 
         unified_summary = llm.invoke([
@@ -301,14 +253,12 @@ Return ONLY the summary text, no JSON or formatting."""
 
     except Exception as e:
         print(f"Error creating unified response: {e}")
-        # Fallback to simple combination
         combined_summary = f"Based on comprehensive analysis from multiple expert perspectives:\n\n"
 
         for agent_type, response in agent_responses:
             agent_name = agent_type.replace('_', ' ').title()
             combined_summary += f"**{agent_name} Perspective:** {response.summary}\n\n"
 
-        # Just use first agent's properties as fallback
         fallback_properties = agent_responses[0][1].top_properties if agent_responses else []
 
         return AgentResponse(
@@ -367,12 +317,11 @@ for idx, message in enumerate(st.session_state.chat_history):
                     feedback_icon = "👍" if st.session_state.feedback[idx] == "like" else "👎"
                     st.caption(f"Feedback recorded: {feedback_icon}")
 
-user_input = st.chat_input("Ask me anything about real estate...")
+user_input = st.chat_input("Ask me anything about real estate...",)
 
-if user_input: 
-    # Display user message
-    with st.chat_message("user"): 
-        st.markdown(user_input) 
+if user_input:
+    with st.chat_message("user"):
+        st.markdown(user_input)
 
     st.session_state.chat_history.append({
         "role": "user",
@@ -390,7 +339,6 @@ if user_input:
 
     print(f"DEBUG: Extracted Params: {search_params}")
 
-    # Display extracted parameters
     if search_params and any(v for k, v in search_params.items() if k not in ['raw_query', 'keywords']):
         with st.chat_message("assistant"):
             st.markdown("### 📋 Search Parameters")
@@ -403,14 +351,12 @@ if user_input:
             "allow_feedback": False
         })
 
-    # Select agents using router
     with st.spinner("🤖 Analyzing query and selecting agents..."):
         try:
             scores, router_response = router.select_models(question)
             print(f'Router scores: {scores}')
             print(f'Router selected: {router_response}')
 
-            # Determine if this is an ambiguous query (all agents consulted)
             is_ambiguous_query = len(router_response) == len(agents)
 
             if is_ambiguous_query:
@@ -435,45 +381,54 @@ if user_input:
     if not selected_agents:
         st.info("No specific agents selected. Using all available agents.")
         selected_agents = [(k, v) for k, v in agents.items()]
-        is_ambiguous_query = True
 
     responses = []
-
 
     for agent_type, agent in selected_agents:
         agent_name = agent_type.replace('_', ' ').title() + " Agent"
 
         with st.spinner(f"💭 {agent_name} is analyzing properties..."):
             try:
-                print(f"DEBUG: Calling {agent_type} with question: {question}")
-                print(f"DEBUG: search_params: {search_params}")
+                print('CLASS OF AGENT', type(agent))
+                raw_response = agent.infer(question, search_params)
+                print('after infer', raw_response)
+                print('raw_response type', type(raw_response))
+                # raw_response= json.loads(raw_response)
+                print('converted', type(raw_response), raw_response)
+                properties = []
+                for p in raw_response.get("top_properties", []):
+                    prop_obj = Property(
+                        property_url=p.get("property_url", ""),
+                        full_street_line=p.get("full_street_line"),
+                        list_price=p.get("list_price"),
+                        beds=p.get("beds"),
+                        full_baths=p.get("full_baths"),
+                        sqft=p.get("sqft"),
+                        style=p.get("style"),
+                        roi=p.get("roi")
+                    )
+                    properties.append(prop_obj)
 
-                ai_response = agent.infer(question, search_params)
-
-                if not isinstance(ai_response, AgentResponse):
-                    if isinstance(ai_response, dict):
-                        ai_response = AgentResponse.model_validate(ai_response)
-                    else:
-                        ai_response = AgentResponse(
-                            summary=str(ai_response),
-                            top_properties=[]
-                        )
+                print(raw_response)
+                ai_response = AgentResponse(
+                    summary=raw_response.get("summary", ""),
+                    top_properties=properties
+                )
 
             except Exception as e:
                 st.error(f"Error from {agent_name}: {e}")
-                print(f"ERROR in {agent_type}: {e}")
                 ai_response = AgentResponse(
                     summary=f"Error processing request: {str(e)}",
                     top_properties=[]
                 )
 
         responses.append((agent_type, ai_response))
+
+
     if is_ambiguous_query:
-        # Create unified response from all agents
         with st.spinner("🎯 Creating unified comprehensive answer..."):
             unified_response = create_unified_response(question, responses, backend._bedrock_llm)
 
-        # Display ONLY the unified response
         with st.chat_message("assistant"):
             st.markdown("### 🎯 Comprehensive Analysis")
             st.markdown(unified_response.summary)
@@ -526,7 +481,7 @@ if user_input:
                         "property_count": len(response.top_properties),
                         "sample_properties": [
                             {
-                                "address": prop.address,
+                                "address": prop.full_street_line,
                                 "price": prop.price,
                                 "bedrooms": prop.bedrooms
                             }
@@ -551,7 +506,7 @@ Create a concise summary that:
                 st.warning(f"Could not generate summary: {e}")
                 summarization = "Multiple specialized agents provided recommendations based on their expertise. Please review each agent's suggestions above."
 
-        with st.chat_message("assistant"): 
+        with st.chat_message("assistant"):
             st.markdown("---")
             st.markdown("### 📊 Summary of Perspectives")
             st.markdown(summarization)
@@ -561,7 +516,7 @@ Create a concise summary that:
             "text": f"### 📊 Summary of Perspectives\n\n{summarization}",
             "allow_feedback": True
         })
-    
+
     st.rerun()
 
 with st.sidebar:
