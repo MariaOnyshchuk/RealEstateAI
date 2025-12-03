@@ -225,11 +225,11 @@ def format_property_value(prop, col):
 
 def show_agent_output(agent_response: AgentResponse, agent_name: str = ""):
     """Display both agent summary and properties in a unified way."""
-    if agent_name:
-        st.markdown(f"### {agent_name}")
+    # if agent_name:
+    #     st.markdown(f"### {agent_name}")
     print(f'agent_response: {type(agent_response)}{agent_response}')
-    if agent_response.summary:
-        st.markdown(agent_response.summary)
+    # if agent_response.summary:
+    #     st.markdown(agent_response.summary)
 
     if agent_response.top_properties:
         st.markdown("#### 🏠 Recommended Properties")
@@ -453,14 +453,6 @@ if user_input:
         agent_name = agent_type.replace('_', ' ').title() + " Agent"
 
         with st.spinner(f"💭 {agent_name} is analyzing properties..."):
-            # try:
-                # print('CLASS OF AGENT', type(agent))
-                # raw_response = agent.infer(question, search_params)
-                # print('after infer', raw_response)
-                # print('raw_response type', type(raw_response))
-                # # raw_response= json.loads(raw_response)
-                # print('converted', type(raw_response), raw_response)
-                # properties = []
             try:
                 logging.debug(f"CLASS OF AGENT: {type(agent)}")
                 raw_response = agent.infer(question, search_params)

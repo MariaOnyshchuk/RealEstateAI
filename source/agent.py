@@ -51,12 +51,15 @@ class Agent:
         self.get_schema_node = ToolNode([self.get_schema_tool], name="get_schema")
         self.run_query_node = ToolNode([self.run_query_tool], name="run_query")
         self.table_name = 'DB'
+        additional_fields = AGENT_EXTRA_FIELDS[self.agent_type]
+        # additional = ': appropriate format'.join(additional_fields)
 
         self.generate_query_system_prompt = GENERATE_QUERY.format(
             agent_type=self.agent_type,
             dialect=self.dialect,
             table_name=self.table_name,
-            top_k=self.top_k
+            top_k=self.top_k,
+            additional_fields = additional_fields
         )
 
         self.check_query_system_prompt = CHECK_QUERY.format(
