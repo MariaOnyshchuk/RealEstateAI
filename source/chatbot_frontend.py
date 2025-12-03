@@ -1,12 +1,14 @@
 import streamlit as st 
 import pandas as pd
-import json
 import chatbot_backend as backend
 from router import Router
 from summarizer import Summarizer
-from agents.base_agent import ParameterExtractor, AgentResponse, SpecializedAgent, Property
+from agents.base_agent import ParameterExtractor, AgentResponse, SpecializedAgent
+from property_retrieval import Property
 import json
 import os
+import logging
+logging.basicConfig(level=logging.INFO)
 
 
 def save_feedback_for_kto(user_input, ai_response, is_like):
@@ -145,36 +147,107 @@ def format_params_display(params: dict) -> str:
     return "\n".join(display_parts)
 
 
-def display_properties_table(properties, agent_name: str = ""):
-    """Display properties in a nice Streamlit table"""
-    if not properties:
-        st.info("No properties found matching your criteria.")
-        return
+AGENT_COLUMN_CONFIG = {
+    "family": [
+        "Address", "Price", "Beds", "Baths", "Size",
+        "Schools", "Parks",
+        "Pharmacies", "Supermarkets",
+        "Crime rate", "URL"
+    ],
+    "investor": [
+        "Address", "Price", "ROI", "Cap Rate", "Annual Rent",
+        "Vacancy Rate", "Property Taxes", "Appreciation", "URL"
+    ],
+    "young_professional": [
+        "Address", "Price", "Beds", "Baths",
+        "Commute Time", "Nightlife Score",
+        "Coworking Spaces Nearby", "URL"
+    ]
+}
 
-    df_data = []
-    for prop in properties:
-        df_data.append({
-            "Address": prop.full_street_line or "N/A",
-            "Price": f"${prop.list_price:,.0f}" if prop.list_price else "N/A",
-            "Beds": prop.beds if prop.beds is not None else "N/A",
-            "Baths": prop.full_baths if prop.full_baths is not None else "N/A",
-            "Size": f"{prop.sqft:,.0f} sqft" if prop.sqft else "N/A",
-            "Type": prop.style.title() if prop.style else "N/A",
-            "ROI": f"{prop.roi:.1f}%" if prop.roi else "N/A",
-            "URL": prop.property_url or "N/A"
-        })
 
-    df = pd.DataFrame(df_data)
+def format_property_value(prop, col):
+    """Convert a Property field into a displayed UI value."""
 
-    st.dataframe(
-        df,
-        width='stretch',
-        hide_index=True,
-        column_config={
-            "URL": st.column_config.LinkColumn("Property Link")
-        }
-    )
+    # basic fields
+    if col == "Address":
+        return prop.full_street_line or "N/A"
+    if col == "Price":
+        return f"${prop.list_price:,.0f}" if prop.list_price else "N/A"
+    if col == "Beds":
+        return prop.beds or "N/A"
+    if col == "Baths":
+        return prop.full_baths or "N/A"
+    if col == "Size":
+        return f"{prop.sqft:,.0f} sqft" if prop.sqft else "N/A"
+    if col == "URL":
+        return prop.property_url or "N/A"
 
+    # investor fields
+    if col == "ROI":
+        return f"{prop.roi:.1f}%" if getattr(prop, "roi", None) else "N/A"
+    if col == "Cap Rate":
+        return f"{prop.cap_rate:.2f}%" if getattr(prop, "cap_rate", None) else "N/A"
+    if col == "Annual Rent":
+        return f"${prop.annual_rent:,.0f}" if getattr(prop, "annual_rent", None) else "N/A"
+    if col == "Vacancy Rate":
+        return f"{prop.vacancy_rate:.1f}%" if getattr(prop, "vacancy_rate", None) else "N/A"
+    if col == "Property Taxes":
+        return f"${prop.tax_cost:,.0f}" if getattr(prop, "tax_cost", None) else "N/A"
+    if col == "Appreciation":
+        return f"{prop.appreciation:.1f}%" if getattr(prop, "appreciation", None) else "N/A"
+
+    # family fields
+    # if col == "Schools Nearby":
+    #     if getattr(prop, "school", None) is not None:
+    #         val = getattr(prop, "school")
+    #         return str(val)  # just show the number
+    #     return "N/A"
+    if col == "Schools":
+        return str(getattr(prop, "school", "N/A")) if getattr(prop, "school", None) is not None else "No schools"
+    if col == "Parks":
+        return str(getattr(prop, "park", "N/A")) if getattr(prop, "park", None) is not None else "No parks"
+    if col == "Pharmacies":
+        return str(getattr(prop, "pharmacy", "N/A")) if getattr(prop, "pharmacy", None) is not None else "No pharmacies"
+    if col == "Supermarkets":
+        return str(getattr(prop, "supermarket", "N/A")) if getattr(prop, "supermarket", None) is not None else "No supermarkets"
+    if col == "Crime rate":
+        return str(getattr(prop, "crime_rate", "N/A")) if getattr(prop, "crime_rate", None) is not None else "No data"
+
+    # if col == "Commute Time":
+    #     return f"{prop.commute_minutes} min" if getattr(prop, "commute_minutes", None) else "N/A"
+    # if col == "Nightlife Score":
+    #     return f"{prop.nightlife_score}/10" if getattr(prop, "nightlife_score", None) else "N/A"
+    # if col == "Coworking Spaces Nearby":
+    #     return "; ".join(prop.coworking_spaces or []) if getattr(prop, "coworking_spaces", None) else "N/A"
+
+    return "N/A"
+
+def show_agent_output(agent_response: AgentResponse, agent_name: str = ""):
+    """Display both agent summary and properties in a unified way."""
+    if agent_name:
+        st.markdown(f"### {agent_name}")
+    print(f'agent_response: {type(agent_response)}{agent_response}')
+    if agent_response.summary:
+        st.markdown(agent_response.summary)
+
+    if agent_response.top_properties:
+        st.markdown("#### 🏠 Recommended Properties")
+        columns = AGENT_COLUMN_CONFIG.get(agent_name.lower(), AGENT_COLUMN_CONFIG["family"])
+        df_data = []
+        for prop in agent_response.top_properties:
+            row = {col: format_property_value(prop, col) for col in columns}
+            df_data.append(row)
+        df = pd.DataFrame(df_data)
+
+        st.dataframe(
+            df,
+            width='stretch',
+            hide_index=True,
+            column_config={"URL": st.column_config.LinkColumn("Property Link")}
+        )
+    else:
+        st.info("No properties found for this search.")
 
 def create_unified_response(question: str, agent_responses: list, llm) -> AgentResponse:
 
@@ -266,19 +339,6 @@ Return ONLY the summary text, no JSON or formatting."""
         )
 
 
-def display_agent_response(agent_response: AgentResponse, agent_name: str):
-    st.markdown(f"### {agent_name}")
-
-    if agent_response.summary:
-        st.markdown(agent_response.summary)
-
-    if agent_response.top_properties:
-        st.markdown("#### 🏠 Recommended Properties")
-        display_properties_table(agent_response.top_properties, agent_name)
-    else:
-        st.info("No properties found for this search.")
-
-
 for idx, message in enumerate(st.session_state.chat_history): 
     with st.chat_message(message["role"]): 
         st.markdown(message["text"])
@@ -288,7 +348,13 @@ for idx, message in enumerate(st.session_state.chat_history):
                 st.markdown(format_params_display(message["params"]))
         
         if message["role"] == "assistant" and "properties" in message and message["properties"]:
-            display_properties_table(message["properties"])
+            show_agent_output(
+                AgentResponse(
+                    summary=message.get("text", ""),
+                    top_properties=message["properties"]
+                ),
+                agent_name=message.get("agent_type", "")
+            )
 
         if message["role"] == "assistant" and message.get("allow_feedback", False):
             col1, col2, col3 = st.columns([1, 1, 10])
@@ -339,9 +405,9 @@ if user_input:
     print(f"DEBUG: Extracted Params: {search_params}")
 
     if search_params and any(v for k, v in search_params.items() if k not in ['raw_query', 'keywords']):
-        with st.chat_message("assistant"):
-            st.markdown("### 📋 Search Parameters")
-            st.markdown(format_params_display(search_params))
+        # with st.chat_message("assistant"):
+        #     st.markdown("### 📋 Search Parameters")
+        #     st.markdown(format_params_display(search_params))
 
         st.session_state.chat_history.append({
             "role": "assistant",
@@ -387,28 +453,23 @@ if user_input:
         agent_name = agent_type.replace('_', ' ').title() + " Agent"
 
         with st.spinner(f"💭 {agent_name} is analyzing properties..."):
+            # try:
+                # print('CLASS OF AGENT', type(agent))
+                # raw_response = agent.infer(question, search_params)
+                # print('after infer', raw_response)
+                # print('raw_response type', type(raw_response))
+                # # raw_response= json.loads(raw_response)
+                # print('converted', type(raw_response), raw_response)
+                # properties = []
             try:
-                print('CLASS OF AGENT', type(agent))
+                logging.debug(f"CLASS OF AGENT: {type(agent)}")
                 raw_response = agent.infer(question, search_params)
-                print('after infer', raw_response)
-                print('raw_response type', type(raw_response))
-                # raw_response= json.loads(raw_response)
-                print('converted', type(raw_response), raw_response)
+                logging.debug(f'after infer: {raw_response}')
+
                 properties = []
                 for p in raw_response.get("top_properties", []):
-                    prop_obj = Property(
-                        property_url=p.get("property_url", ""),
-                        full_street_line=p.get("full_street_line"),
-                        list_price=p.get("list_price"),
-                        beds=p.get("beds"),
-                        full_baths=p.get("full_baths"),
-                        sqft=p.get("sqft"),
-                        style=p.get("style"),
-                        roi=p.get("roi")
-                    )
+                    prop_obj = Property(**p)  # dynamically map all fields from dict
                     properties.append(prop_obj)
-
-                print(raw_response)
                 ai_response = AgentResponse(
                     summary=raw_response.get("summary", ""),
                     top_properties=properties
@@ -416,10 +477,8 @@ if user_input:
 
             except Exception as e:
                 st.error(f"Error from {agent_name}: {e}")
-                ai_response = AgentResponse(
-                    summary=f"Error processing request: {str(e)}",
-                    top_properties=[]
-                )
+                ai_response = AgentResponse(summary=f"Error processing request: {str(e)}", top_properties=[])
+
 
         responses.append((agent_type, ai_response))
 
@@ -430,11 +489,15 @@ if user_input:
 
         with st.chat_message("assistant"):
             st.markdown("### 🎯 Comprehensive Analysis")
-            st.markdown(unified_response.summary)
 
-            if unified_response.top_properties:
-                st.markdown("#### 🏠 Top Recommended Properties")
-                display_properties_table(unified_response.top_properties)
+            # Wrap list + summary in AgentResponse
+            show_agent_output(
+                AgentResponse(
+                    summary=unified_response.summary,
+                    top_properties=unified_response.top_properties
+                ),
+                agent_name="Comprehensive"
+            )
 
         st.session_state.chat_history.append({
             "role": "assistant",
@@ -448,7 +511,7 @@ if user_input:
             agent_name = agent_type.replace('_', ' ').title() + " Agent"
 
             with st.chat_message("assistant"):
-                display_agent_response(ai_response, agent_name)
+                show_agent_output(ai_response, agent_name)
 
             # Store in chat history
             response_text = f"**{agent_name}**\n\n{ai_response.summary}"

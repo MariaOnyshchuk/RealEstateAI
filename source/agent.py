@@ -8,35 +8,27 @@ from langchain_core.runnables import RunnableConfig
 from langgraph.graph import END, START, MessagesState, StateGraph
 from pydantic import BaseModel, Field
 from typing import List, Optional
+from property_retrieval import QueryResult
 from agents.prompts import CHECK_QUERY, GENERATE_QUERY
 from agents.prompts import FORMAT_PROMPT, FAMIILY_AGENT, INVESTOR_AGENT, YOUNG_PROFESSIONAL
 
 import json, re
 
-class Property(BaseModel):
-    property_url: str = ""
-    full_street_line: Optional[str] = None
-    list_price: Optional[float] = None
-    beds: Optional[float] = None
-    full_baths: Optional[float] = None
-    sqft: Optional[float] = None
-    style: Optional[str] = None
-    roi: Optional[float] = None
-    class Config:
-        coerce_numbers_to_str = False
-        extra = 'ignore'
+AGENT_EXTRA_FIELDS = {
+    "family": ["school", "park", "pharmacy", "supermarket", "crime_rate"],
+    "investor": ["roi", "annual_rent", "maintenance", "annual_cost", "net_rental_yield"],
+    "young_professional": ["night_club", "restaurant", "gym", "library", "commute_minutes"]
+}
 
-class QueryResult(BaseModel):
-    summary: str
-    top_properties: List[Property] = []
+
 AGENT_PROMPTS = {
         "family": FAMIILY_AGENT,
         "investor": INVESTOR_AGENT,
         "young_professional": YOUNG_PROFESSIONAL
     }
+
+
 class Agent:
-
-
     def __init__(self, llm, agent_type):
         from langchain_community.agent_toolkits import SQLDatabaseToolkit
 
@@ -46,7 +38,7 @@ class Agent:
         # --- Database setup ---
         self.db = SQLDatabase.from_uri("sqlite:///data.db")
         self.dialect = self.db.dialect
-        self.top_k = 5
+        self.top_k = 3
 
         # --- Toolkit and tools ---
         toolkit = SQLDatabaseToolkit(db=self.db, llm=llm)
@@ -124,6 +116,9 @@ class Agent:
             query = last_msg.tool_calls[0]["args"]["query"]
             query_lower = query.lower()
 
+            # query = last_msg.tool_calls[0]["args"]["query"]
+            print("Generated SQL Query:\n", query)
+
             dangerous_keywords = ['drop', 'delete', 'insert', 'update', 'truncate', 'alter']
             if any(keyword in query_lower for keyword in dangerous_keywords):
                 return {"messages": [AIMessage(content="Query contains dangerous operations and was blocked.")]}
@@ -142,10 +137,8 @@ class Agent:
             response = llm_with_tools.invoke([system_message, user_message])
 
             return {"messages": [response]}
+
         def format_query_results(state: MessagesState):
-            """
-            Take raw SQL results and ask LLM to format them into JSON
-            """
             messages = state["messages"]
 
             sql_results = None
@@ -154,37 +147,30 @@ class Agent:
                     sql_results = msg.content
                     break
 
-            if not sql_results:
-                return {"messages": [AIMessage(content=json.dumps({
-                    "summary": "No query results found.",
-                    "top_properties": []
-                }))]}
-
-            # Check if results are empty
-            if sql_results.strip() in ["[]", "", "None"]:
+            if not sql_results or sql_results.strip() in ["[]", "", "None"]:
                 return {"messages": [AIMessage(content=json.dumps({
                     "summary": "No properties found matching your criteria.",
                     "top_properties": []
                 }))]}
+
             agent_instructions = AGENT_PROMPTS.get(self.agent_type, "You are a real estate agent.")
-            format_prompt = FORMAT_PROMPT.format(
+            extra_fields = ", ".join(f'"{f}": int or null' for f in AGENT_EXTRA_FIELDS.get(self.agent_type, []))
+
+            format_prompt_full = FORMAT_PROMPT.format(
                 agent_instructions=agent_instructions,
-                sql_results=sql_results
+                sql_results=sql_results,
+                extra_fields=extra_fields
             )
 
-            response = self.llm.invoke([{"role": "user", "content": format_prompt}])
+            print('Formatted query prompt:\n', format_prompt_full)
 
-            if hasattr(response, 'content'):
-                content = response.content
-            else:
-                content = str(response)
+            response = self.llm.invoke([{"role": "user", "content": format_prompt_full}])
+            content = getattr(response, 'content', str(response))
 
             return {"messages": [AIMessage(content=content)]}
 
+
         def format_results(state: MessagesState):
-            """
-            Clean and validate the JSON response from format_query_results
-            """
             messages = state["messages"]
             query_result = None
 
@@ -202,42 +188,44 @@ class Agent:
                             break
 
             if not query_result:
-                result_json = QueryResult(
-                    summary="No results could be formatted.",
-                    top_properties=[]
-                )
-                return {"messages": [AIMessage(content=result_json.json())]}
+                result_json = QueryResult(summary="No results could be formatted.", top_properties=[])
+                return {"messages": [AIMessage(content=result_json.model_dump_json())]}
 
             query_result_clean = re.sub(r'```json\s*|\s*```', '', query_result, flags=re.IGNORECASE).strip()
 
             try:
-                print('Query Result: \n\n',query_result_clean)
+                print('Query Result JSON:\n', query_result_clean)
                 parsed_dict = json.loads(query_result_clean)
 
-                if "top_properties" in parsed_dict and isinstance(parsed_dict["top_properties"], list):
-                    for prop in parsed_dict["top_properties"]:
-                        for key in ["full_street_line", "list_price", "beds", "full_baths", "sqft", "roi"]:
-                            if key in prop and prop[key] is not None:
+                numeric_fields = {"list_price", "beds", "full_baths", "sqft", "roi"}
+                numeric_fields.update(AGENT_EXTRA_FIELDS.get(self.agent_type, []))
+
+                for prop in parsed_dict.get("top_properties", []):
+                    for key in numeric_fields:
+                        if key in prop:
+                            val = prop[key]
+                            if val is None or val == "":
+                                prop[key] = None
+                            else:
                                 try:
-                                    if isinstance(prop[key], str):
-                                        prop[key] = float(prop[key]) if prop[key] != '' else None
+                                    prop[key] = float(val)
                                 except (ValueError, TypeError):
                                     prop[key] = None
 
-                        if "property_url" not in prop or not prop["property_url"]:
-                            prop["property_url"] = ""
+                    if "property_url" not in prop or not prop["property_url"]:
+                        prop["property_url"] = ""
 
-                print('parces dist',parsed_dict)
                 result_json = QueryResult(**parsed_dict)
                 return {"messages": [AIMessage(content=result_json.model_dump_json())]}
 
             except json.JSONDecodeError as e:
                 print(f"JSON decode error: {e}")
-                print(f"Content was: {query_result_clean[:500]}")
                 result_json = QueryResult(
                     summary="Error formatting results. Please try a different search.",
                     top_properties=[]
                 )
+                return {"messages": [AIMessage(content=result_json.model_dump_json())]}
+
 
         builder = StateGraph(MessagesState)
 

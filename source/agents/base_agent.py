@@ -5,7 +5,7 @@ import re
 from pydantic import BaseModel, ConfigDict, Field
 from agents.prompts import EXTRACT_PARAMS_FROM_QUERY_PROMPT, FAMIILY_AGENT, INVESTOR_AGENT, YOUNG_PROFESSIONAL
 from agent import Agent
-from agent import Property
+from property_retrieval import Property
 
 
 class AgentResponse(BaseModel):

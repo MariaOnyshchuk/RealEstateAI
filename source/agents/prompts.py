@@ -1,4 +1,59 @@
-EXTRACT_PARAMS_FROM_QUERY_PROMPT = """You are a parameter extraction system for real estate searches.
+EXTRACT_PARAMS_FROM_QUERY_PROMPT = """
+You extract structured real estate search parameters from a natural-language query.
+Your ONLY output must be a valid JSON object. Do not include explanations.
+
+Extract all constraints explicitly stated or implicitly implied in the query.
+If a value is not mentioned, return null or an empty list.
+
+You must NOT infer or hallucinate values that the user did not provide.
+
+Return a JSON dictionary with the following fields:
+
+{{
+    "location": null,                     # city, state, neighborhood, county, or address fragments
+    "price_min": null,
+    "price_max": null,
+    "bedrooms_min": null,
+    "bedrooms_max": null,
+    "bathrooms_min": null,
+    "bathrooms_max": null,
+    "size_min": null,                     # sqft or lot constraints
+    "size_max": null,
+    "year_built_min": null,
+    "year_built_max": null,
+    "roi_min": null,
+    "roi_max": null,
+    "yield_min": null,                    # rental yield
+    "yield_max": null,
+    "rent_min": null,                     # monthly rent
+    "rent_max": null,
+    "crime_rate_max": null,
+    "amenities": [],                      # e.g. ["park", "gym", "school"]
+    "property_type": null,                # e.g. "HOUSE", "CONDO", "TOWNHOUSE" capslock
+    "style": null,                        # e.g. "modern", "craftsman", "colonial"
+    "keywords": [],                       # text keywords user explicitly mentions
+    "must_include_text": [],              # phrases required in property description
+    "exclude_keywords": [],               # phrases to avoid
+    "sorting_preference": null,           # "cheapest", "highest_roi", "largest", etc.
+    "limit": null                         # number of results user wants
+}}
+
+Rules:
+- If user asks for "cheap", "budget", "low price" → do NOT assign a number. Set sorting_preference = "cheapest".
+- If user asks "best ROI", "high return", "investment" → set sorting_preference = "highest_roi".
+- Extract amenities only if explicitly mentioned.
+- Convert qualitative ranges:
+   "under X" → max = X
+   "over X" → min = X
+   "between X and Y" → set both
+- If query mentions multiple constraints, include all of them.
+- Do not guess unknown values.
+
+Return ONLY the JSON. No extra text.
+"""
+
+
+EXTRACT_PARAMS_FROM_QUERY_PROMPT_old = """You are a parameter extraction system for real estate searches.
 Extract ALL relevant information and return ONLY valid JSON.
 Format example:
 {{
@@ -58,32 +113,78 @@ Focus on:
 Tone: Energetic, modern, and lifestyle-focused.
 Emphasize urban convenience and social opportunities."""
 
-CHECK_QUERY = """
-Review and fix the SQL query before execution.
 
-MANDATORY FIXES:
-1. Table name must be: {table_name}
+GENERATE_QUERY_to_fix = """
+You are an expert SQL query generator for real estate listings ({agent_type}).
+You receive a structured JSON parameter object and produce an optimized SQL query.
+Use {dialect} SQL syntax exactly.
 
-2. Property type (style) must use EXACT uppercase values:
-   - SINGLE_FAMILY (not 'house', 'home', 'single family')
-   - CONDOS (not 'condo', 'apartment')
-   - TOWNHOMES (not 'townhouse', 'town house')
-   - MULTI_FAMILY (not 'multi family', 'multifamily')
+CRITICAL:
+The table name is EXACTLY: {table_name}
 
-3. Numeric columns MUST be cast:
-   - CAST(beds AS INTEGER) for bed counts
-   - CAST(full_baths AS INTEGER) for bathroom counts
-   - CAST(list_price AS REAL) for prices
-   - CAST(sqft AS REAL) for square footage
-   - CAST(roi AS REAL) for ROI percentages
+==========================================
+DATA TYPE RULES (MANDATORY)
+==========================================
+1. style column values are UPPERCASE strings:
+   'SINGLE_FAMILY', 'CONDOS', 'TOWNHOMES', 'FARM', 'DUPLEX_TRIPLEX', 'MULTI_FAMILY'
 
-4. DO NOT search text column for lifestyle keywords (kids, family, etc.)
-   - Focus on concrete features: beds, baths, amenities
+   Mapping:
+   - "house" → 'SINGLE_FAMILY'
+   - "condo" → 'CONDOS'
+   - "townhouse" → 'TOWNHOMES'
+   - "apartment" → ('CONDOS' OR 'MULTI_FAMILY')
+   etc.
 
-5. Use LIMIT {top_k}
+2. Numeric columns may be stored as TEXT:
+   beds, full_baths, half_baths, sqft, list_price, roi, avg_monthly_rent, annual_rent,
+   gross_rental_yield, net_rental_yield, price_per_sqft, crime_rate
 
-Rewrite the query if needed, then execute it.
+   ALWAYS cast for numeric comparisons:
+   - CAST(column AS REAL)
+   - CAST(column AS INTEGER)
+
+3. Text-search rules:
+   - The 'text' column contains property descriptions.
+   - Only use keyword search for structural or geographic terms:
+       "renovated", "basement", "garage", "waterfront", "view", etc.
+   - NEVER search for lifestyle words: "family", "kids", "professional", "safe", etc.
+
+4. Amenity/location columns (values are counts or proximity indicators):
+   cafe, restaurant, pharmacy, gym, library, museum, night_club, park, school,
+   shopping_mall, stadium, supermarket, university, town_square
+   - If user requests “near X”, require column IS NOT NULL.
+
+==========================================
+QUERY CONSTRUCTION RULES
+==========================================
+• Always include SELECT property_url.
+• Always apply LIMIT {top_k}.
+• Use AND to combine all filters.
+• Skip filters that are null or empty.
+• Use UPPER() for text matching.
+• For ranges:
+    - If X_min provided → CAST(col AS REAL) >= X_min
+    - If X_max provided → CAST(col AS REAL) <= X_max
+• For sorting:
+    - "cheapest" → ORDER BY CAST(list_price AS REAL) ASC
+    - "largest" → ORDER BY CAST(sqft AS REAL) DESC
+    - "highest_roi" → ORDER BY CAST(roi AS REAL) DESC
+    - If no sorting preference → no ORDER BY clause.
+
+==========================================
+OUTPUT FORMAT (MANDATORY)
+==========================================
+Return ONLY valid JSON:
+
+{{
+  "sql": "SELECT ...",
+  "summary": "A short explanation of applied filters"
+}}
+
+Do NOT add comments or text outside the JSON.
+Do NOT format SQL inside ``` blocks.
 """
+
 
 
 GENERATE_QUERY = """
@@ -93,11 +194,12 @@ Use {dialect} SQL syntax.
 CRITICAL: The table name is EXACTLY: {table_name}
 
 IMPORTANT DATA TYPE RULES:
-1. style column values are UPPERCASE ONLY: 'SINGLE_FAMILY', 'CONDOS', 'MULTI_FAMILY', 'TOWNHOMES'
+1. style column values are UPPERCASE ONLY: 'SINGLE_FAMILY', 'CONDOS', 'TOWNHOMES', 'FARM', 'DUPLEX_TRIPLEX'
    - For "house" queries, use: style = 'SINGLE_FAMILY'
    - For "condo" queries, use: style = 'CONDOS'
    - For "townhouse" queries, use: style = 'TOWNHOMES'
    - For "multi-family" queries, use: style = 'MULTI_FAMILY'
+   etc.
 
 2. Numeric columns (beds, full_baths, half_baths, sqft, list_price, roi) may be stored as TEXT
    - Always use CAST(column AS REAL) or CAST(column AS INTEGER) for comparisons
@@ -149,6 +251,33 @@ Return ONLY valid JSON:
 """
 
 
+CHECK_QUERY = """
+Review and fix the SQL query before execution.
+
+MANDATORY FIXES:
+1. Table name must be: {table_name}
+
+2. Property type (style) must use EXACT uppercase values:
+   - SINGLE_FAMILY (not 'house', 'home', 'single family')
+   - CONDOS (not 'condo', 'apartment')
+   - TOWNHOMES (not 'townhouse', 'town house')
+   - MULTI_FAMILY (not 'multi family', 'multifamily')
+
+3. Numeric columns MUST be cast:
+   - CAST(beds AS INTEGER) for bed counts
+   - CAST(full_baths AS INTEGER) for bathroom counts
+   - CAST(list_price AS REAL) for prices
+   - CAST(sqft AS REAL) for square footage
+   - CAST(roi AS REAL) for ROI percentages
+
+4. DO NOT search text column for lifestyle keywords (kids, family, etc.)
+   - Focus on concrete features: beds, baths, amenities
+
+5. Use LIMIT {top_k}
+
+Rewrite the query if needed, then execute it.
+"""
+
 ROUTER_SYSTEM_PROMPT = """You are an intelligent query analyzer for real estate searches.
 
 Your task: Analyze the user's query and determine which agent types are most relevant.
@@ -177,7 +306,7 @@ Examples:
 Return ONLY the JSON object, nothing else."""
 
 
-FORMAT_PROMPT = """
+FORMAT_PROMPT_old = """
 Convert these SQL query results into the required JSON format.
 Original Agent Instructions:
 {agent_instructions}
@@ -199,6 +328,38 @@ You must return ONLY valid JSON with this exact structure:
     }}
   ]
 }}
+"""
+
+FORMAT_PROMPT = """
+Convert these SQL query results into the required JSON format.
+Original Agent Instructions:
+{agent_instructions}
+SQL Results:
+{sql_results}
+
+You must return ONLY valid JSON with this exact structure:
+
+{{
+  "summary": "Description of results according to agent instructions",
+  "top_properties": [
+    {{
+      "property_url": "string",
+      "full_street_line": "string",
+      "list_price": float or null,
+      "beds": float or null,
+      "full_baths": float or null,
+      "sqft": float or null,
+      "style": "string",
+      "roi": float or null,
+      {extra_fields}
+    }}
+  ]
+}}
+Notes:
+- All numeric fields must be floats or null.
+- Text fields must be strings.
+- Extra fields ({extra_fields}) should include all agent-relevant columns, e.g. for family: school, park, pharmacy, supermarket, crime_rate.
+- Do NOT omit columns relevant to the agent.
 """
 
 ALL_COLUMNS = '''
