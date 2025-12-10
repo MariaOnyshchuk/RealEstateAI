@@ -277,7 +277,7 @@ def show_agent_output(agent_response: AgentResponse, agent_name: str = ""):
 
         st.dataframe(
             df,
-            width='stretch',  
+            width='stretch',
             hide_index=True,
             column_config={"URL": st.column_config.LinkColumn("Property Link")}
         )
@@ -419,8 +419,8 @@ user_input = st.chat_input("Ask me anything about real estate...")
 if user_input:
     st.session_state.current_query = user_input
     st.session_state.processing_active = True
-    st.session_state.completed_agents = [] 
-    
+    st.session_state.completed_agents = []
+
     st.session_state.chat_history.append({
         "role": "user",
         "text": user_input
@@ -437,7 +437,7 @@ if st.session_state.processing_active:
             except Exception as e:
                 st.error(f"Error extracting parameters: {e}")
                 search_params = {"raw_query": question}
-            
+
             st.session_state.last_params = search_params
 
             if search_params and any(v for k, v in search_params.items() if k not in ['raw_query', 'keywords']):
@@ -447,7 +447,7 @@ if st.session_state.processing_active:
                     "params": search_params,
                     "allow_feedback": False
                 })
-        
+
         st.session_state.completed_agents.append("params_extracted")
         st.rerun()
 
@@ -462,7 +462,7 @@ if st.session_state.processing_active:
                 st.warning(f"Router error: {e}. Using all agents.")
                 router_response = ['family', 'investor', 'young_professional']
                 is_ambiguous = True
-            
+
             st.session_state.last_router_response = router_response
             st.session_state.last_is_ambiguous = is_ambiguous
 
@@ -471,15 +471,15 @@ if st.session_state.processing_active:
             else:
                 names = [n.replace('_', ' ').title() for n in router_response]
                 st.info(f"🎯 Routing to: {', '.join(names)}")
-        
+
         st.session_state.completed_agents.append("routing_done")
         st.rerun()
 
     router_response = st.session_state.get("last_router_response", [])
     is_ambiguous_query = st.session_state.get("last_is_ambiguous", False)
-    
+
     if "agents_executed" not in st.session_state.completed_agents:
-        
+
         selected_agents = []
         for model_type in router_response:
             if model_type in agents:
@@ -495,31 +495,31 @@ if st.session_state.processing_active:
 
         responses_buffer = []
 
-        with st.spinner(spinner_text): 
+        with st.spinner(spinner_text):
             with ThreadPoolExecutor(max_workers=3) as executor:
                 future_to_agent = {
-                    executor.submit(process_single_agent, atype, agent, question, search_params): atype 
+                    executor.submit(process_single_agent, atype, agent, question, search_params): atype
                     for atype, agent in selected_agents
                 }
 
                 for future in as_completed(future_to_agent):
                     atype, ai_response, error = future.result()
-                    
+
                     if error:
                         st.error(f"Error from {atype}: {error}")
                         err_resp = AgentResponse(summary=f"Error: {error}", top_properties=[])
                         responses_buffer.append((atype, err_resp))
                     else:
                         responses_buffer.append((atype, ai_response))
-        
+
         order_priority = ['family', 'investor', 'young_professional']
         responses_buffer.sort(key=lambda x: order_priority.index(x[0]) if x[0] in order_priority else 99)
 
-        
+
         if is_ambiguous_query:
             with st.spinner("🎯 Synthesizing comprehensive answer..."):
                 unified = create_unified_response(question, responses_buffer, llm_client)
-                
+
                 st.session_state.chat_history.append({
                     "role": "assistant",
                     "text": f"### 🎯 Comprehensive Analysis\n\n{unified.summary}",
@@ -529,7 +529,7 @@ if st.session_state.processing_active:
         else:
             for agent_type, ai_response in responses_buffer:
                 agent_name = agent_type.replace('_', ' ').title() + " Agent"
-                
+
                 st.session_state.chat_history.append({
                     "role": "assistant",
                     "text": f"**{agent_name}**\n\n{ai_response.summary}",
@@ -539,13 +539,13 @@ if st.session_state.processing_active:
                 })
 
         st.session_state.completed_agents.append("agents_executed")
-        st.session_state.processing_active = False 
+        st.session_state.processing_active = False
         st.rerun()
 
 with st.sidebar:
     st.header("⚙️ Settings")
 
-    if st.button("🗑️ Clear Chat History"):
+    if st.button("🗑️ Clear Chat History", key="clear_chat_button"):
         st.session_state.chat_history = []
         st.session_state.feedback = {}
         st.rerun()
@@ -572,5 +572,31 @@ with st.sidebar:
             label="📥 Download Feedback",
             data=json.dumps(feedback_data, indent=2, default=str),
             file_name=f"chatbot_feedback_{pd.Timestamp.now().strftime('%Y%m%d_%H%M%S')}.json",
-            mime="application/json"
+            mime="application/json",
+            key="download_feedback_button"
         )
+    st.markdown("---")
+    st.subheader("🚀 Quick Queries")
+    st.caption("Click to fill the input field with sample queries")
+
+    # Define your predefined queries
+    quick_queries = {
+        "👨‍👩‍👧‍👦 Family Home": "I'm looking for a family-friendly home with 3-4 bedrooms, 2 schools nearby, and a safe neighborhood",
+        "💼 Investment Property": "Show me properties with high ROI potential for investment purposes",
+        "🏃 Young Professional": "I need a modern apartment near restaurants, gyms, and nightlife",
+        "🏠 Budget Friendly": "Find affordable homes under $300,000 with at least 2 bedrooms"
+    }
+    # Create buttons for each query
+    for idx, (label, query) in enumerate(quick_queries.items()):
+        if st.button(label, key=f"quick_query_{idx}", use_container_width=True):
+            st.session_state.current_query = query
+            st.session_state.processing_active = True
+            st.session_state.completed_agents = []
+
+            st.session_state.chat_history.append({
+                "role": "user",
+                "text": query
+            })
+            st.rerun()
+
+    st.markdown("---")
