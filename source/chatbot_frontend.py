@@ -4,12 +4,43 @@ import chatbot_backend as backend
 from router import Router
 from summarizer import Summarizer
 from agents.base_agent import ParameterExtractor, AgentResponse, SpecializedAgent
+from agents.prompts import UNIFIED_ANSWER_PROMPT
 from property_retrieval import Property
 import json
 import os
 import logging
+from concurrent.futures import ThreadPoolExecutor, as_completed #paralell
+
 logging.basicConfig(level=logging.INFO)
 
+
+def process_single_agent(agent_type, agent, question, search_params):
+    """Process a single agent and return results"""
+    agent_name = agent_type.replace('_', ' ').title() + " Agent"
+
+    try:
+        logging.debug(f"CLASS OF AGENT: {type(agent)}")
+        raw_response = agent.infer(question, search_params)
+        logging.debug(f'after infer: {raw_response}')
+
+        properties = []
+        for p in raw_response.get("top_properties", []):
+            prop_obj = Property(**p)
+            properties.append(prop_obj)
+
+        ai_response = AgentResponse(
+            summary=raw_response.get("summary", ""),
+            top_properties=properties
+        )
+        return (agent_type, ai_response, None)  # (type, response, error)
+
+    except Exception as e:
+        logging.error(f"Error from {agent_name}: {e}")
+        ai_response = AgentResponse(
+            summary=f"Error processing request: {str(e)}",
+            top_properties=[]
+        )
+        return (agent_type, ai_response, str(e))
 
 def save_feedback_for_kto(user_input, ai_response, is_like):
     data_file = "kto_dataset.json"
@@ -149,19 +180,26 @@ def format_params_display(params: dict) -> str:
 
 AGENT_COLUMN_CONFIG = {
     "family": [
-        "Address", "Price", "Beds", "Baths", "Size",
-        "Schools", "Parks",
+        "URL", "Address", "Price", "Beds", "Baths", "Size", "Stories",
+        "Schools",
         "Pharmacies", "Supermarkets",
-        "Crime rate", "URL"
+        "Crime rate"
+        #   "Shopping Mall", "Parks",
     ],
     "investor": [
-        "Address", "Price", "ROI", "Cap Rate", "Annual Rent",
-        "Vacancy Rate", "Property Taxes", "Appreciation", "URL"
+        "URL" , "Address", "Price", "ROI", "Monthly Rent", "Stories",
+        "Property Taxes"
+        # "Maintenance", "HOA Fee"
     ],
     "young_professional": [
-        "Address", "Price", "Beds", "Baths",
-        "Commute Time", "Nightlife Score",
-        "Coworking Spaces Nearby", "URL"
+        "URL", "Address", "Price", "Beds", "Baths",
+        "Restaurants", "Gyms", "Stories",
+        "Town Square", "Libraries", "Night Clubs"
+    ],
+    'comprehensive': [
+        "URL", "Address", "Price", "Beds", "Baths", "Size", "Stories",
+        "Schools",
+        "Property Taxes", "Restaurants",  "Gyms"
     ]
 }
 
@@ -170,67 +208,63 @@ def format_property_value(prop, col):
     """Convert a Property field into a displayed UI value."""
 
     # basic fields
-    if col == "Address":
-        return prop.full_street_line or "N/A"
-    if col == "Price":
-        return f"${prop.list_price:,.0f}" if prop.list_price else "N/A"
-    if col == "Beds":
-        return prop.beds or "N/A"
-    if col == "Baths":
-        return prop.full_baths or "N/A"
-    if col == "Size":
-        return f"{prop.sqft:,.0f} sqft" if prop.sqft else "N/A"
     if col == "URL":
-        return prop.property_url or "N/A"
+        return prop.property_url or 'No data'
+    if col == "Address":
+        return prop.full_street_line or 'No data'
+    if col == "Price":
+        return f"${prop.list_price:,.0f}" if prop.list_price else 'No data'
+    if col == "Beds":
+        return prop.beds or 'No data'
+    if col == "Baths":
+        return prop.full_baths or 'No data'
+    if col == "Size":
+        return f"{prop.sqft:,.0f} sqft" if prop.sqft else 'No data'
+    if col == "Stories":
+        return prop.stories or 'No data'
 
     # investor fields
     if col == "ROI":
-        return f"{prop.roi:.1f}%" if getattr(prop, "roi", None) else "N/A"
-    if col == "Cap Rate":
-        return f"{prop.cap_rate:.2f}%" if getattr(prop, "cap_rate", None) else "N/A"
-    if col == "Annual Rent":
-        return f"${prop.annual_rent:,.0f}" if getattr(prop, "annual_rent", None) else "N/A"
-    if col == "Vacancy Rate":
-        return f"{prop.vacancy_rate:.1f}%" if getattr(prop, "vacancy_rate", None) else "N/A"
+        # return str(getattr(prop, "roi", "No data")) if getattr(prop, "roi", None) is not None else "No data"
+        return f"{prop.roi:,.2f}%" if getattr(prop, "roi", None) else 'No data'
+    if col == "Monthly Rent":
+        return f"${prop.avg_monthly_rent:,.0f}" if getattr(prop, "avg_monthly_rent", None) else 'No data'
     if col == "Property Taxes":
-        return f"${prop.tax_cost:,.0f}" if getattr(prop, "tax_cost", None) else "N/A"
-    if col == "Appreciation":
-        return f"{prop.appreciation:.1f}%" if getattr(prop, "appreciation", None) else "N/A"
+        return f"${prop.tax:,.0f}" if getattr(prop, "tax", None) else 'No data'
+    # if col == "Maintenance":
+    #     return f"${prop.maintenance:,.0f}" if getattr(prop, "maintenance", None) else 'No data'
+    # if col =="HOA Fee":
+    #     return f"${prop.hoa_fee:,.0f}" if getattr(prop, "hoa_fee", None) else 'No data'
 
     # family fields
-    # if col == "Schools Nearby":
-    #     if getattr(prop, "school", None) is not None:
-    #         val = getattr(prop, "school")
-    #         return str(val)  # just show the number
-    #     return "N/A"
     if col == "Schools":
-        return str(getattr(prop, "school", "N/A")) if getattr(prop, "school", None) is not None else "No schools"
+        return str(getattr(prop, "school", 'No data')) if getattr(prop, "school", None) is not None else "No schools"
     if col == "Parks":
-        return str(getattr(prop, "park", "N/A")) if getattr(prop, "park", None) is not None else "No parks"
+        return str(getattr(prop, "park", 'No data')) if getattr(prop, "park", None) is not None else "No parks"
     if col == "Pharmacies":
-        return str(getattr(prop, "pharmacy", "N/A")) if getattr(prop, "pharmacy", None) is not None else "No pharmacies"
+        return str(getattr(prop, "pharmacy", 'No data')) if getattr(prop, "pharmacy", None) is not None else "No pharmacies"
     if col == "Supermarkets":
-        return str(getattr(prop, "supermarket", "N/A")) if getattr(prop, "supermarket", None) is not None else "No supermarkets"
+        return str(getattr(prop, "supermarket", 'No data')) if getattr(prop, "supermarket", None) is not None else "No supermarkets"
     if col == "Crime rate":
-        return str(getattr(prop, "crime_rate", "N/A")) if getattr(prop, "crime_rate", None) is not None else "No data"
+        return str(getattr(prop, "crime_rate", 'No data')) if getattr(prop, "crime_rate", None) is not None else "No data"
+    if col == "Shopping Mall":
+        return prop.shopping_mall or 'No data'
 
-    # if col == "Commute Time":
-    #     return f"{prop.commute_minutes} min" if getattr(prop, "commute_minutes", None) else "N/A"
-    # if col == "Nightlife Score":
-    #     return f"{prop.nightlife_score}/10" if getattr(prop, "nightlife_score", None) else "N/A"
-    # if col == "Coworking Spaces Nearby":
-    #     return "; ".join(prop.coworking_spaces or []) if getattr(prop, "coworking_spaces", None) else "N/A"
+    if col == "Restaurants":
+        return str(getattr(prop, "restaurant", 'No data')) if getattr(prop, "restaurant", None) is not None else "No data"
+    if col == "Gyms":
+        return prop.gym or 'No data'
+    if col =="Libraries":
+        return prop.library or 'No data'
+    if col == "Night Clubs":
+        return str(getattr(prop, "night_club", 'No data')) if getattr(prop, "night_club", None) is not None else "No data"
+    if col == "Town Square":
+        return prop.town_square or 'No data'
 
-    return "N/A"
+    return 'Need to be added to list of propetries'
 
 def show_agent_output(agent_response: AgentResponse, agent_name: str = ""):
-    """Display both agent summary and properties in a unified way."""
-    # if agent_name:
-    #     st.markdown(f"### {agent_name}")
     print(f'agent_response: {type(agent_response)}{agent_response}')
-    # if agent_response.summary:
-    #     st.markdown(agent_response.summary)
-
     if agent_response.top_properties:
         st.markdown("#### 🏠 Recommended Properties")
         columns = AGENT_COLUMN_CONFIG.get(agent_name.lower(), AGENT_COLUMN_CONFIG["family"])
@@ -295,23 +329,12 @@ def create_unified_response(question: str, agent_responses: list, llm) -> AgentR
 
         unique_properties.sort(key=score_property, reverse=True)
         top_properties = unique_properties
-        synthesis_prompt = f"""You are creating a unified, comprehensive answer for a real estate query.
-Original Question: "{question}"
-We consulted three specialized real estate agents (Family, Investor, Young Professional) and received these perspectives:
-{json.dumps(agent_summaries, indent=2)}
-We found {len(unique_properties)} total unique properties across all agents.
 
-Your task: Create ONE cohesive summary that:
-1. Explains that we analyzed the query from multiple expert perspectives
-2. Synthesizes the key insights from all three agents into a unified narrative
-3. Highlights what makes the recommended properties suitable
-4. Addresses different aspects (family-friendliness, investment potential, lifestyle fit)
-5. Provides actionable guidance without repeating information
-6. Keeps it concise (3-4 paragraphs maximum)
-
-Important: Write as if you're a single expert who considered all angles, NOT as separate agent responses.
-Do not use phrases like "The Family Agent said..." - instead synthesize into unified insights.
-Return ONLY the summary text, no JSON or formatting."""
+        synthesis_prompt = UNIFIED_ANSWER_PROMPT.format(
+            question=question,
+            all_summaries={json.dumps(agent_summaries, indent=2)},
+            unique_properties_num=len(unique_properties)
+        )
 
         unified_summary = llm.invoke([
             {"role": "system", "content": "You are a comprehensive real estate advisor."},
@@ -405,10 +428,6 @@ if user_input:
     print(f"DEBUG: Extracted Params: {search_params}")
 
     if search_params and any(v for k, v in search_params.items() if k not in ['raw_query', 'keywords']):
-        # with st.chat_message("assistant"):
-        #     st.markdown("### 📋 Search Parameters")
-        #     st.markdown(format_params_display(search_params))
-
         st.session_state.chat_history.append({
             "role": "assistant",
             "text": "### 📋 Search Parameters\n" + format_params_display(search_params),
@@ -448,32 +467,26 @@ if user_input:
         selected_agents = [(k, v) for k, v in agents.items()]
 
     responses = []
+# ---------------------
+# paralellisation block
+# ---------------------
+    with st.spinner("💭 All agents analyzing properties..."):
+        with ThreadPoolExecutor(max_workers=3) as executor:
+            # Submit all agent tasks
+            futures = [
+                executor.submit(process_single_agent, agent_type, agent, question, search_params)
+                for agent_type, agent in selected_agents
+            ]
 
-    for agent_type, agent in selected_agents:
-        agent_name = agent_type.replace('_', ' ').title() + " Agent"
-
-        with st.spinner(f"💭 {agent_name} is analyzing properties..."):
-            try:
-                logging.debug(f"CLASS OF AGENT: {type(agent)}")
-                raw_response = agent.infer(question, search_params)
-                logging.debug(f'after infer: {raw_response}')
-
-                properties = []
-                for p in raw_response.get("top_properties", []):
-                    prop_obj = Property(**p)  # dynamically map all fields from dict
-                    properties.append(prop_obj)
-                ai_response = AgentResponse(
-                    summary=raw_response.get("summary", ""),
-                    top_properties=properties
-                )
-
-            except Exception as e:
-                st.error(f"Error from {agent_name}: {e}")
-                ai_response = AgentResponse(summary=f"Error processing request: {str(e)}", top_properties=[])
-
-
-        responses.append((agent_type, ai_response))
-
+            # Collect results as they complete
+            for future in as_completed(futures):
+                agent_type, ai_response, error = future.result()
+                if error:
+                    st.error(f"Error from {agent_type.replace('_', ' ').title()} Agent: {error}")
+                responses.append((agent_type, ai_response))
+# ---------------------
+# paralellisation block
+# ---------------------
 
     if is_ambiguous_query:
         with st.spinner("🎯 Creating unified comprehensive answer..."):
@@ -481,7 +494,7 @@ if user_input:
 
         with st.chat_message("assistant"):
             st.markdown("### 🎯 Comprehensive Analysis")
-
+            st.markdown(unified_response.summary)
             # Wrap list + summary in AgentResponse
             show_agent_output(
                 AgentResponse(
@@ -515,63 +528,7 @@ if user_input:
                 "allow_feedback": True
             })
 
-    if len(selected_agents) > 1 and not is_ambiguous_query:
-        with st.spinner("📝 Creating comprehensive summary..."):
-            try:
-                is_ambiguous = len(selected_agents) == len(agents)
-                summary_input = {
-                    "query": question,
-                    "is_ambiguous": is_ambiguous,
-                    "agent_responses": []
-                }
-
-
-
-                # summary_input = []
-                for agent_type, response in responses:
-                    summary_input["agent_responses"].append({
-                        "agent": agent_type.replace('_', ' ').title(),
-                        "summary": response.summary,
-                        "property_count": len(response.top_properties),
-                        "sample_properties": [
-                            {
-                                "address": prop.full_street_line,
-                                "price": prop.price,
-                                "bedrooms": prop.bedrooms
-                            }
-                            for prop in response.top_properties[:2]  # Just top 2 for summary
-                        ]
-                    })
-
-                summary_prompt = f"""Multiple specialized agents responded to: "{question}"
-
-{json.dumps(summary_input["agent_responses"], indent=2, default=str)}
-
-Create a concise summary that:
-1. Synthesizes the key points from each agent's perspective
-2. Highlights areas of agreement and difference
-3. Provides overall guidance based on all perspectives
-4. Keeps it brief (2-3 paragraphs)"""
-                summarization = backend._bedrock_llm.invoke([
-                    {"role": "system", "content": "You are a real estate assistant creating perspective summaries."},
-                    {"role": "user", "content": summary_prompt}
-                ]).content
-            except Exception as e:
-                st.warning(f"Could not generate summary: {e}")
-                summarization = "Multiple specialized agents provided recommendations based on their expertise. Please review each agent's suggestions above."
-
-        with st.chat_message("assistant"):
-            st.markdown("---")
-            st.markdown("### 📊 Summary of Perspectives")
-            st.markdown(summarization)
-
-        st.session_state.chat_history.append({
-            "role": "assistant",
-            "text": f"### 📊 Summary of Perspectives\n\n{summarization}",
-            "allow_feedback": True
-        })
-
-    st.rerun()
+        st.rerun()
 
 with st.sidebar:
     st.header("⚙️ Settings")
