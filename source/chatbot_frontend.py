@@ -277,7 +277,7 @@ def show_agent_output(agent_response: AgentResponse, agent_name: str = ""):
 
         st.dataframe(
             df,
-            width='stretch',
+            use_container_width=True,  
             hide_index=True,
             column_config={"URL": st.column_config.LinkColumn("Property Link")}
         )
@@ -417,157 +417,124 @@ if 'completed_agents' not in st.session_state:
 user_input = st.chat_input("Ask me anything about real estate...")
 
 if user_input:
-    with st.chat_message("user"):
-        st.markdown(user_input)
-
+    st.session_state.current_query = user_input
+    st.session_state.processing_active = True
+    st.session_state.completed_agents = [] 
+    
     st.session_state.chat_history.append({
         "role": "user",
         "text": user_input
     })
-
-    question = user_input
-
-    # Step 1: Extract search parameters
-    with st.spinner("🔍 Analyzing your query..."):
-        try:
-            search_params = extractor.extract(question)
-        except Exception as e:
-            st.error(f"Error extracting parameters: {e}")
-            search_params = {"raw_query": question}
-
-    print(f"DEBUG: Extracted Params: {search_params}")
-
-    # Display extracted parameters
-    if search_params and any(v for k, v in search_params.items() if k not in ['raw_query', 'keywords']):
-        st.session_state.chat_history.append({
-            "role": "assistant",
-            "text": "### 📋 Search Parameters\n" + format_params_display(search_params),
-            "params": search_params,
-            "allow_feedback": False
-        })
-
-    # Step 2: Router determines which agents to use
-    with st.spinner("🤖 Analyzing query and selecting agents..."):
-        try:
-            scores, router_response = router.select_models(question)
-            print(f'Router scores: {scores}')
-            print(f'Router selected: {router_response}')
-
-            is_ambiguous_query = len(router_response) == len(agents)
-
-            if is_ambiguous_query:
-                st.info("🔀 Query is ambiguous - consulting all agents for unified comprehensive answer")
-            else:
-                selected_names = [name.replace('_', ' ').title() for name in router_response]
-                st.info(f"🎯 Routing to: {', '.join(selected_names)}")
-
-        except Exception as e:
-            st.warning(f"Router error: {e}. Using all agents.")
-            router_response = ['family', 'investor', 'young_professional']
-            scores = {agent: 0.33 for agent in router_response}
-            is_ambiguous_query = True
-
-    # Step 3: Build selected agents list
-    selected_agents = []
-    for model_type in router_response:
-        if model_type in agents:
-            selected_agents.append((model_type, agents[model_type]))
-
-    # Fallback to all agents if none selected
-    if not selected_agents:
-        st.info("No specific agents selected. Using all available agents.")
-        selected_agents = [(k, v) for k, v in agents.items()]
-
-    # Step 4: Execute based on number of agents
-    responses = []
-
-    if len(selected_agents) == 1:
-        # SINGLE AGENT PATH - Direct execution (no parallelization)
-        agent_type, agent = selected_agents[0]
-        agent_name = agent_type.replace('_', ' ').title() + " Agent"
-
-        with st.spinner(f"💭 {agent_name} is analyzing properties..."):
-            try:
-                agent_type, ai_response, error = process_single_agent(
-                    agent_type, agent, question, search_params
-                )
-
-                if error:
-                    st.error(f"Error from {agent_name}: {error}")
-
-                responses.append((agent_type, ai_response))
-
-            except Exception as e:
-                st.error(f"Error processing {agent_name}: {e}")
-                ai_response = AgentResponse(
-                    summary=f"Error: {e}",
-                    top_properties=[]
-                )
-                responses.append((agent_type, ai_response))
-
-    else:
-        # MULTIPLE AGENTS PATH - Parallel execution
-        with st.spinner("💭 All agents analyzing properties..."):
-            with ThreadPoolExecutor(max_workers=3) as executor:
-                # Submit all agent tasks
-                futures = [
-                    executor.submit(process_single_agent, agent_type, agent, question, search_params)
-                    for agent_type, agent in selected_agents
-                ]
-
-                # Collect results as they complete
-                for future in as_completed(futures):
-                    agent_type, ai_response, error = future.result()
-                    if error:
-                        st.error(f"Error from {agent_type.replace('_', ' ').title()} Agent: {error}")
-                    responses.append((agent_type, ai_response))
-
-    # Step 5: Display results based on query type
-    if is_ambiguous_query:
-        # Path A: ALL agents consulted → Unified comprehensive response
-        with st.spinner("🎯 Creating unified comprehensive answer..."):
-            unified_response = create_unified_response(question, responses, backend._bedrock_llm)
-
-        with st.chat_message("assistant"):
-            st.markdown("### 🎯 Comprehensive Analysis")
-            st.markdown(unified_response.summary)
-            show_agent_output(
-                AgentResponse(
-                    summary=unified_response.summary,
-                    top_properties=unified_response.top_properties
-                ),
-                agent_name="Comprehensive"
-            )
-
-        st.session_state.chat_history.append({
-            "role": "assistant",
-            "text": f"### 🎯 Comprehensive Analysis\n\n{unified_response.summary}",
-            "properties": unified_response.top_properties,
-            "agent_type": "comprehensive",
-            "allow_feedback": True
-        })
-
-    else:
-        # Path B: Specific agent(s) selected → Display each individually
-        for agent_type, ai_response in responses:
-            agent_name = agent_type.replace('_', ' ').title() + " Agent"
-
-            with st.chat_message("assistant"):
-                st.markdown(f"### {agent_name}")
-                st.markdown(ai_response.summary)
-                show_agent_output(ai_response, agent_name)
-
-            # Store in chat history
-            response_text = f"**{agent_name}**\n\n{ai_response.summary}"
-            st.session_state.chat_history.append({
-                "role": "assistant",
-                "text": response_text,
-                "properties": ai_response.top_properties,
-                "agent_type": agent_type,
-                "allow_feedback": True
-            })
-
     st.rerun()
+
+if st.session_state.processing_active:
+    question = st.session_state.current_query
+
+    if "params_extracted" not in st.session_state.completed_agents:
+        with st.spinner("🔍 Analyzing your query..."):
+            try:
+                search_params = extractor.extract(question)
+            except Exception as e:
+                st.error(f"Error extracting parameters: {e}")
+                search_params = {"raw_query": question}
+            
+            st.session_state.last_params = search_params
+
+            if search_params and any(v for k, v in search_params.items() if k not in ['raw_query', 'keywords']):
+                st.session_state.chat_history.append({
+                    "role": "assistant",
+                    "text": "### 📋 Search Parameters\n" + format_params_display(search_params),
+                    "params": search_params,
+                    "allow_feedback": False
+                })
+        
+        st.session_state.completed_agents.append("params_extracted")
+        st.rerun()
+
+    search_params = st.session_state.get("last_params", {})
+
+    if "routing_done" not in st.session_state.completed_agents:
+        with st.spinner("🤖 Selecting agents..."):
+            try:
+                scores, router_response = router.select_models(question)
+                is_ambiguous = (len(router_response) == len(agents))
+            except Exception as e:
+                st.warning(f"Router error: {e}. Using all agents.")
+                router_response = ['family', 'investor', 'young_professional']
+                is_ambiguous = True
+            
+            st.session_state.last_router_response = router_response
+            st.session_state.last_is_ambiguous = is_ambiguous
+
+            if is_ambiguous:
+                st.info("🔀 Ambiguous query - consulting all agents")
+            else:
+                names = [n.replace('_', ' ').title() for n in router_response]
+                st.info(f"🎯 Routing to: {', '.join(names)}")
+        
+        st.session_state.completed_agents.append("routing_done")
+        st.rerun()
+
+    router_response = st.session_state.get("last_router_response", [])
+    is_ambiguous_query = st.session_state.get("last_is_ambiguous", False)
+    
+    if "agents_executed" not in st.session_state.completed_agents:
+        
+        selected_agents = []
+        for model_type in router_response:
+            if model_type in agents:
+                selected_agents.append((model_type, agents[model_type]))
+        if not selected_agents:
+            selected_agents = [(k, v) for k, v in agents.items()]
+
+        responses_buffer = []
+
+        with st.spinner("💭 All agents are analyzing properties in parallel..."):
+            with ThreadPoolExecutor(max_workers=3) as executor:
+                future_to_agent = {
+                    executor.submit(process_single_agent, atype, agent, question, search_params): atype 
+                    for atype, agent in selected_agents
+                }
+
+                for future in as_completed(future_to_agent):
+                    atype, ai_response, error = future.result()
+                    
+                    if error:
+                        st.error(f"Error from {atype}: {error}")
+                        err_resp = AgentResponse(summary=f"Error: {error}", top_properties=[])
+                        responses_buffer.append((atype, err_resp))
+                    else:
+                        responses_buffer.append((atype, ai_response))
+        
+        order_priority = ['family', 'investor', 'young_professional']
+        responses_buffer.sort(key=lambda x: order_priority.index(x[0]) if x[0] in order_priority else 99)
+
+        
+        if is_ambiguous_query:
+            with st.spinner("🎯 Synthesizing comprehensive answer..."):
+                unified = create_unified_response(question, responses_buffer, llm_client)
+                
+                st.session_state.chat_history.append({
+                    "role": "assistant",
+                    "text": f"### 🎯 Comprehensive Analysis\n\n{unified.summary}",
+                    "properties": unified.top_properties,
+                    "allow_feedback": True
+                })
+        else:
+            for agent_type, ai_response in responses_buffer:
+                agent_name = agent_type.replace('_', ' ').title() + " Agent"
+                
+                st.session_state.chat_history.append({
+                    "role": "assistant",
+                    "text": f"**{agent_name}**\n\n{ai_response.summary}",
+                    "properties": ai_response.top_properties,
+                    "agent_type": agent_type,
+                    "allow_feedback": True
+                })
+
+        st.session_state.completed_agents.append("agents_executed")
+        st.session_state.processing_active = False 
+        st.rerun() 
 
 with st.sidebar:
     st.header("⚙️ Settings")
@@ -601,15 +568,3 @@ with st.sidebar:
             file_name=f"chatbot_feedback_{pd.Timestamp.now().strftime('%Y%m%d_%H%M%S')}.json",
             mime="application/json"
         )
-
-    st.markdown("---")
-    st.subheader("💡 Tips")
-    st.markdown("""
-    **You can ask:**
-    - Specific queries: *"3 bed house in Seattle under $500k"*
-    - Abstract requests: *"cozy place near downtown"*
-    - Lifestyle-based: *"good for families with kids"*
-    - Investment focused: *"properties with high ROI"*
-
-    The chatbot understands natural language!
-    """)
