@@ -277,7 +277,7 @@ def show_agent_output(agent_response: AgentResponse, agent_name: str = ""):
 
         st.dataframe(
             df,
-            use_container_width=True,  
+            width='stretch',  
             hide_index=True,
             column_config={"URL": st.column_config.LinkColumn("Property Link")}
         )
@@ -487,9 +487,15 @@ if st.session_state.processing_active:
         if not selected_agents:
             selected_agents = [(k, v) for k, v in agents.items()]
 
+        if len(selected_agents) == 1:
+            agent_name = selected_agents[0][0].replace('_', ' ').title() + " Agent"
+            spinner_text = f"💭 {agent_name} is analyzing properties..."
+        else:
+            spinner_text = "💭 All agents are analyzing properties in parallel..."
+
         responses_buffer = []
 
-        with st.spinner("💭 All agents are analyzing properties in parallel..."):
+        with st.spinner(spinner_text): 
             with ThreadPoolExecutor(max_workers=3) as executor:
                 future_to_agent = {
                     executor.submit(process_single_agent, atype, agent, question, search_params): atype 
@@ -534,7 +540,7 @@ if st.session_state.processing_active:
 
         st.session_state.completed_agents.append("agents_executed")
         st.session_state.processing_active = False 
-        st.rerun() 
+        st.rerun()
 
 with st.sidebar:
     st.header("⚙️ Settings")
