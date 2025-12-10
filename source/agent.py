@@ -12,7 +12,7 @@ from property_retrieval import QueryResult
 from agents.prompts import CHECK_QUERY, GENERATE_QUERY
 from agents.prompts import FORMAT_PROMPT, FAMIILY_AGENT, INVESTOR_AGENT, YOUNG_PROFESSIONAL
 
-import json, re
+import os, dotenv
 
 AGENT_EXTRA_FIELDS = {
     "family": ["school", "park", "pharmacy", "supermarket", "crime_rate"],
@@ -36,7 +36,11 @@ class Agent:
         self.agent_type = agent_type
 
         # --- Database setup ---
-        self.db = SQLDatabase.from_uri("sqlite:///data.db")
+        dotenv.load_dotenv()
+        db_url = os.getenv("DATABASE_URL")
+        self.db = SQLDatabase.from_uri(db_url)
+
+        # self.db = SQLDatabase.from_uri("sqlite:///data.db") // for local use
         self.dialect = self.db.dialect
         self.top_k = 3
 

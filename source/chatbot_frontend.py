@@ -100,13 +100,14 @@ if 'chat_history' not in st.session_state:
 if 'feedback' not in st.session_state:
     st.session_state.feedback = {}
 
-router = Router(backend._bedrock_llm)
-summarizer = Summarizer(backend._bedrock_llm)
-extractor = ParameterExtractor(backend._bedrock_llm)
+llm_client = backend.get_bedrock_client()
 
+router = Router(llm_client)
+summarizer = Summarizer(llm_client)
+extractor = ParameterExtractor(llm_client)
 
 agents = {
-    agent_type: SpecializedAgent(backend._bedrock_llm, agent_type)
+    agent_type: SpecializedAgent(llm_client, agent_type)
     for agent_type in ['family', 'investor', 'young_professional']
 }
 
@@ -405,28 +406,49 @@ for idx, message in enumerate(st.session_state.chat_history):
                     feedback_icon = "👍" if st.session_state.feedback[idx] == "like" else "👎"
                     st.caption(f"Feedback recorded: {feedback_icon}")
 
-user_input = st.chat_input("Ask me anything about real estate...",)
+if 'processing_active' not in st.session_state:
+    st.session_state.processing_active = False
+if 'current_query' not in st.session_state:
+    st.session_state.current_query = None
+if 'completed_agents' not in st.session_state:
+    st.session_state.completed_agents = []
+
+user_input = st.chat_input("Ask me anything about real estate...")
 
 if user_input:
-    with st.chat_message("user"):
-        st.markdown(user_input)
-
+    st.session_state.current_query = user_input
+    st.session_state.processing_active = True
+    st.session_state.completed_agents = [] #
+    
     st.session_state.chat_history.append({
         "role": "user",
         "text": user_input
     })
+    st.rerun()
 
-    question = user_input
+if st.session_state.processing_active:
+    question = st.session_state.current_query
 
-    with st.spinner("🔍 Analyzing your query..."):
-        try:
-            search_params = extractor.extract(question)
-        except Exception as e:
-            st.error(f"Error extracting parameters: {e}")
-            search_params = {"raw_query": question}
+    if "params_extracted" not in st.session_state.completed_agents:
+        with st.spinner("🔍 Analyzing your query..."):
+            try:
+                search_params = extractor.extract(question)
+            except Exception:
+                search_params = {"raw_query": question}
+            
+            st.session_state.last_params = search_params
 
-    print(f"DEBUG: Extracted Params: {search_params}")
+            if search_params and any(v for k, v in search_params.items() if k not in ['raw_query', 'keywords']):
+                st.session_state.chat_history.append({
+                    "role": "assistant",
+                    "text": "### 📋 Search Parameters\n" + format_params_display(search_params),
+                    "params": search_params,
+                    "allow_feedback": False
+                })
+        st.session_state.completed_agents.append("params_extracted")
+        st.rerun() 
 
+<<<<<<< HEAD
     if search_params and any(v for k, v in search_params.items() if k not in ['raw_query', 'keywords']):
         st.session_state.chat_history.append({
             "role": "assistant",
@@ -434,38 +456,42 @@ if user_input:
             "params": search_params,
             "allow_feedback": False
         })
+=======
+    search_params = st.session_state.get("last_params", {})
 
-    with st.spinner("🤖 Analyzing query and selecting agents..."):
-        try:
-            scores, router_response = router.select_models(question)
-            print(f'Router scores: {scores}')
-            print(f'Router selected: {router_response}')
+    if "routing_done" not in st.session_state.completed_agents:
+        with st.spinner("🤖 Selecting agents..."):
+            try:
+                scores, router_response = router.select_models(question)
+                is_ambiguous = (len(router_response) == len(agents))
+            except Exception:
+                router_response = ['family', 'investor', 'young_professional']
+                is_ambiguous = True
+            
+            st.session_state.last_router_response = router_response
+            st.session_state.last_is_ambiguous = is_ambiguous
+>>>>>>> 058f7111ac3ab7c9dc9cf61a19115e67d345a900
 
-            is_ambiguous_query = len(router_response) == len(agents)
-
-            if is_ambiguous_query:
-                st.info("🔀 Query is ambiguous - consulting all agents for unified comprehensive answer")
+            if is_ambiguous:
+                st.info("🔀 Ambiguous query - consulting all agents")
             else:
-                selected_names = [name.replace('_', ' ').title() for name in router_response]
-                st.info(f"🎯 Routing to: {', '.join(selected_names)}")
+                names = [n.replace('_', ' ').title() for n in router_response]
+                st.info(f"🎯 Routing to: {', '.join(names)}")
+        
+        st.session_state.completed_agents.append("routing_done")
+        st.rerun()
 
-        except Exception as e:
-            st.warning(f"Router error: {e}. Using all agents.")
-            router_response = ['family', 'investor', 'young_professional']
-            scores = {agent: 0.33 for agent in router_response}
-            is_ambiguous_query = True
+    router_response = st.session_state.get("last_router_response", [])
+    is_ambiguous_query = st.session_state.get("last_is_ambiguous", False)
 
-    # Get selected agents
     selected_agents = []
     for model_type in router_response:
         if model_type in agents:
             selected_agents.append((model_type, agents[model_type]))
-
-    # Fallback to all agents if none selected
     if not selected_agents:
-        st.info("No specific agents selected. Using all available agents.")
         selected_agents = [(k, v) for k, v in agents.items()]
 
+<<<<<<< HEAD
     responses = []
 # ---------------------
 # paralellisation block
@@ -510,8 +536,49 @@ if user_input:
             "properties": unified_response.top_properties,
             "allow_feedback": True
         })
+=======
+    if is_ambiguous_query:
+        if "ambiguous_finished" not in st.session_state.completed_agents:
+            with st.spinner("🎯 Creating comprehensive answer..."):
+                temp_responses = []
+                for agent_type, agent in selected_agents:
+                    try:
+                        raw = agent.infer(question, search_params)
+                        props = [Property(**p) for p in raw.get("top_properties", [])]
+                        temp_responses.append((agent_type, AgentResponse(summary=raw.get("summary",""), top_properties=props)))
+                    except Exception:
+                        continue
+                
+                unified = create_unified_response(question, temp_responses, backend.get_bedrock_client())
+                
+                st.session_state.chat_history.append({
+                    "role": "assistant",
+                    "text": f"### 🎯 Comprehensive Analysis\n\n{unified.summary}",
+                    "properties": unified.top_properties,
+                    "allow_feedback": True
+                })
+            
+            st.session_state.completed_agents.append("ambiguous_finished")
+            st.session_state.processing_active = False 
+            st.rerun()
+            
+>>>>>>> 058f7111ac3ab7c9dc9cf61a19115e67d345a900
     else:
+        all_done = True
+        for agent_type, agent in selected_agents:
+            if agent_type not in st.session_state.completed_agents:
+                all_done = False
+                agent_name = agent_type.replace('_', ' ').title() + " Agent"
+                
+                with st.spinner(f"💭 {agent_name} is analyzing properties..."):
+                    try:
+                        raw = agent.infer(question, search_params)
+                        props = [Property(**p) for p in raw.get("top_properties", [])]
+                        ai_resp = AgentResponse(summary=raw.get("summary",""), top_properties=props)
+                    except Exception as e:
+                        ai_resp = AgentResponse(summary=f"Error: {e}", top_properties=[])
 
+<<<<<<< HEAD
         for agent_type, ai_response in responses:
             agent_name = agent_type.replace('_', ' ').title() + " Agent"
 
@@ -574,3 +641,19 @@ with st.sidebar:
 
     The chatbot understands natural language!
     """)
+=======
+                    st.session_state.chat_history.append({
+                        "role": "assistant",
+                        "text": f"**{agent_name}**\n\n{ai_resp.summary}",
+                        "properties": ai_resp.top_properties,
+                        "agent_type": agent_type,
+                        "allow_feedback": True
+                    })
+                
+                st.session_state.completed_agents.append(agent_type)
+                st.rerun() 
+
+        if all_done:
+            st.session_state.processing_active = False
+            st.rerun()
+>>>>>>> 058f7111ac3ab7c9dc9cf61a19115e67d345a900
