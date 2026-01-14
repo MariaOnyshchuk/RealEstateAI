@@ -207,12 +207,15 @@ class Agent:
 
             # Handle empty or error results
             if not sql_results or sql_results.strip() in ["[]", "", "None", "null"]:
-                print("ℹ️  No SQL results found")
-                result_json = QueryResult(
-                    summary="No properties found matching your criteria.",
-                    top_properties=[]
-                )
-                return {"messages": [AIMessage(content=result_json.model_dump_json())]}
+                raise RuntimeError(
+                        "format_final_results called with empty SQL results — this is a pipeline bug"
+                    )
+                # print("ℹ️  No SQL results found")
+                # result_json = QueryResult(
+                #     summary="No properties found matching your criteria.",
+                #     top_properties=[]
+                # )
+                # return {"messages": [AIMessage(content=result_json.model_dump_json())]}
 
             # Check for error messages from validation
             if "error" in sql_results.lower() and "blocked" in sql_results.lower():
@@ -293,7 +296,6 @@ CRITICAL - SUMMARY REQUIREMENTS:
 - Use the tone and style described in "AGENT PERSONALITY & SUMMARY STYLE" above
 - Highlight the key features that matter to a {self.agent_type}
 - Be specific about what was found (number of properties, price ranges, key features)
-- Keep it 1-3 sentences maximum
 
 
 {{
@@ -388,15 +390,25 @@ Please preserve all of the variables in the JSON as in the example:
 
                 return {"messages": [AIMessage(content=result_json.model_dump_json())]}
 
-            except json.JSONDecodeError as e:
-                print(f"❌ JSON decode error: {e}")
-                print(f"Failed content: {content_clean[:200]}")
+            # except json.JSONDecodeError as e:
+            #     print(f"❌ JSON decode error: {e}")
+            #     print(f"Failed content: {content_clean[:200]}")
 
-                result_json = QueryResult(
-                    summary="Error formatting results. Please try rephrasing your query.",
-                    top_properties=[]
+            #     result_json = QueryResult(
+            #         summary="Error formatting results. Please try rephrasing your query.",
+            #         top_properties=[]
+            #     )
+            #     return {"messages": [AIMessage(content=result_json.model_dump_json())]}
+            except json.JSONDecodeError:
+                result_json = cheat_recover_llm_json(
+                    raw_output=content_clean,
+                    llm=self.llm,
+                    agent_type=self.agent_type,
+                    user_query=user_query
                 )
+
                 return {"messages": [AIMessage(content=result_json.model_dump_json())]}
+
 
             except Exception as e:
                 print(f"❌ Unexpected error: {e}")
@@ -407,6 +419,99 @@ Please preserve all of the variables in the JSON as in the example:
                 )
                 return {"messages": [AIMessage(content=result_json.model_dump_json())]}
 
+
+
+        def should_retry(state) -> Literal[
+            "generate_query",
+            "format_final_results",
+            END
+        ]:
+            if state.get("stop_pipeline"):
+                return END
+            if state.get("should_retry"):
+                return "generate_query"
+
+            return "format_final_results"
+
+
+
+        def check_results(state: MessagesState):
+            """
+            Check if SQL query returned valid results.
+            If empty/error, retry query generation (up to MAX_RETRIES).
+            """
+            messages = state["messages"]
+
+            # Find the latest SQL results from ToolMessage
+            sql_results = None
+            for msg in reversed(messages):
+                if msg.__class__.__name__ == "ToolMessage":
+                    sql_results = msg.content
+                    break
+
+            retry_count = state.get("retry_count", 0)
+
+            is_empty = not sql_results or sql_results.strip() in ["[]", "", "None", "null"]
+            is_error = sql_results and any(
+                x in sql_results.lower() for x in ["error", "blocked"]
+            )
+
+            # -------------------------
+            # RETRY PATH
+            # -------------------------
+            if is_empty or is_error:
+                if retry_count < MAX_RETRIES:
+                    print(f"\n⚠️  No results found. Retry attempt {retry_count + 1}/{MAX_RETRIES}\n")
+
+                    feedback_msg = AIMessage(
+                        content=(
+                            "Previous query returned no results. "
+                            "Please generate a simpler or broader SQL query. "
+                            "Relax some filters or use LIKE instead of exact matches."
+                        )
+                    )
+
+                    return {
+                        "messages": [feedback_msg],
+                        "retry_count": retry_count + 1,
+                        "should_retry": True
+                    }
+
+                # -------------------------
+                # HARD STOP (max retries)
+                # -------------------------
+                print(f"\n❌ Max retries ({MAX_RETRIES}) reached. No results found.\n")
+
+                result_json = QueryResult(
+                    summary=(
+                        "We couldn't find any properties matching your criteria. "
+                        "Try adjusting your search parameters, such as expanding the "
+                        "price range or relaxing some requirements."
+                    ),
+                    top_properties=[]
+                )
+
+                return {
+                    "messages": [AIMessage(content=result_json.model_dump_json())],
+                    "retry_count": retry_count,
+                    "should_retry": False,
+                    "stop_pipeline": True
+                }
+
+            # -------------------------
+            # SUCCESS PATH
+            # -------------------------
+            # Clean ToolMessages so formatter sees only valid context
+            clean_messages = [
+                m for m in messages
+                if m.__class__.__name__ != "ToolMessage"
+            ]
+
+            return {
+                "messages": clean_messages,
+                "retry_count": retry_count,
+                "should_retry": False
+            }
 
         # def check_results(state: MessagesState):
         #     """
@@ -429,100 +534,66 @@ Please preserve all of the variables in the JSON as in the example:
         #     is_empty = not sql_results or sql_results.strip() in ["[]", "", "None", "null"]
         #     is_error = sql_results and ("error" in sql_results.lower() or "blocked" in sql_results.lower())
 
-        #     if (is_empty or is_error) and retry_count < MAX_RETRIES:
-        #         print(f"\n⚠️  No results found. Retry attempt {retry_count + 1}/{MAX_RETRIES}\n")
+        #     if (is_empty or is_error):
+        #         if retry_count < MAX_RETRIES:
+        #             print(f"\n⚠️  No results found. Retry attempt {retry_count + 1}/{MAX_RETRIES}\n")
 
-        #         # Add feedback message for LLM to adjust query
-        #         feedback_msg = AIMessage(
-        #             content=f"Previous query returned no results. Please generate a simpler or broader query. Try removing some filters or using LIKE instead of exact matches."
-        #         )
+        #             # Add feedback message for LLM to adjust query
+        #             feedback_msg = AIMessage(
+        #                 content=f"Previous query returned no results. Please generate a simpler or broader query. Try removing some filters or using LIKE instead of exact matches."
+        #             )
 
-        #         return {
-        #             "messages": [feedback_msg],
-        #             "retry_count": retry_count + 1,
-        #             "should_retry": True
-        #         }
+        #             return {
+        #                 "messages": [feedback_msg],
+        #                 "retry_count": retry_count + 1,
+        #                 "should_retry": True
+        #             }
+        #         else:
+        #             # Max retries reached - create a friendly message
+        #             print(f"\n❌ Max retries ({MAX_RETRIES}) reached. No results found.\n")
 
-        #     # Results are good OR max retries reached
+        #             result_json = QueryResult(
+        #                 summary="We couldn't find any properties matching your criteria. Try adjusting your search parameters, such as expanding the price range, considering different neighborhoods, or relaxing some requirements.",
+        #                 top_properties=[]
+        #             )
+
+        #             # return {
+        #             #     "messages": [AIMessage(content=result_json.model_dump_json())],
+        #             #     "retry_count": retry_count,
+        #             #     "should_retry": False
+        #             # }
+        #             return {
+        #                 "messages": [AIMessage(content=result_json.model_dump_json())],
+        #                 "retry_count": retry_count,
+        #                 "should_retry": False,
+        #                 "stop_pipeline": True
+        #             }
+
+
+        #     # Results are good
+        #     clean_messages = [
+        #             m for m in state["messages"]
+        #             if not (hasattr(m, "__class__") and m.__class__.__name__ == "ToolMessage")
+        #         ]
+        #     # return {
+        #     #     "retry_count": retry_count,
+        #     #     "should_retry": False
+        #     # }
         #     return {
-        #         "retry_count": retry_count,
-        #         "should_retry": False
+        #         "messages": clean_messages + [feedback_msg],
+        #         "retry_count": retry_count + 1,
+        #         "should_retry": True
         #     }
 
-
-        def should_retry(state: MessagesState) -> Literal["generate_query", "format_final_results"]:
-            """
-            Router: decide whether to retry query generation or proceed to formatting.
-            """
-            return "generate_query" if state.get("should_retry", False) else "format_final_results"
-
-
-        def check_results(state: MessagesState):
-            """
-            Check if SQL query returned valid results.
-            If empty/error, retry query generation (up to MAX_RETRIES).
-            """
-            messages = state["messages"]
-
-            # Find the SQL results from ToolMessage
-            sql_results = None
-            for msg in reversed(messages):
-                if hasattr(msg, '__class__') and msg.__class__.__name__ == 'ToolMessage':
-                    sql_results = msg.content
-                    break
-
-            # Count current retry attempts
-            retry_count = state.get("retry_count", 0)
-
-            # Check if results are empty or error
-            is_empty = not sql_results or sql_results.strip() in ["[]", "", "None", "null"]
-            is_error = sql_results and ("error" in sql_results.lower() or "blocked" in sql_results.lower())
-
-            if (is_empty or is_error):
-                if retry_count < MAX_RETRIES:
-                    print(f"\n⚠️  No results found. Retry attempt {retry_count + 1}/{MAX_RETRIES}\n")
-
-                    # Add feedback message for LLM to adjust query
-                    feedback_msg = AIMessage(
-                        content=f"Previous query returned no results. Please generate a simpler or broader query. Try removing some filters or using LIKE instead of exact matches."
-                    )
-
-                    return {
-                        "messages": [feedback_msg],
-                        "retry_count": retry_count + 1,
-                        "should_retry": True
-                    }
-                else:
-                    # Max retries reached - create a friendly message
-                    print(f"\n❌ Max retries ({MAX_RETRIES}) reached. No results found.\n")
-
-                    result_json = QueryResult(
-                        summary="We couldn't find any properties matching your criteria. Try adjusting your search parameters, such as expanding the price range, considering different neighborhoods, or relaxing some requirements.",
-                        top_properties=[]
-                    )
-
-                    return {
-                        "messages": [AIMessage(content=result_json.model_dump_json())],
-                        "retry_count": retry_count,
-                        "should_retry": False
-                    }
-
-            # Results are good
-            return {
-                "retry_count": retry_count,
-                "should_retry": False
-            }
         builder = StateGraph(MessagesState)
 
         builder.add_node("list_tables", list_tables)
         builder.add_node("call_get_schema", call_get_schema)
         builder.add_node("get_schema", self.get_schema_node)
         builder.add_node("generate_query", generate_query)
-        # builder.add_node("check_query", check_query)
         builder.add_node("validate_query", validate_query)
         builder.add_node("run_query", self.run_query_node)
-        # builder.add_node("format_query_results", format_query_results)  # NEW NODE
-        # builder.add_node("format_results", format_results)
+
         builder.add_node("format_final_results", format_final_results)
         builder.add_node("check_results", check_results)
 
@@ -531,15 +602,8 @@ Please preserve all of the variables in the JSON as in the example:
         builder.add_edge("list_tables", "call_get_schema")
         builder.add_edge("call_get_schema", "get_schema")
         builder.add_edge("get_schema", "generate_query")
-        # builder.add_edge("generate_query", "check_query")
-        # builder.add_edge("check_query", "run_query")
         builder.add_edge("generate_query", "validate_query")
         builder.add_edge("validate_query", "run_query")
-        # builder.add_edge("run_query", "format_query_results")  # NEW EDGE
-        # builder.add_edge("format_query_results", "format_results")  # NEW EDGE
-        # builder.add_edge("format_results", END)
-        # builder.add_edge("run_query", "format_final_results") # EXPERIMENTALY CHANGED
-        # builder.add_node("check_results", check_results)
         builder.add_edge("run_query", "check_results")
         builder.add_conditional_edges("check_results", should_retry)
         builder.add_edge("format_final_results", END)
@@ -556,3 +620,66 @@ Please preserve all of the variables in the JSON as in the example:
 
         return json.loads(content)
 
+
+def cheat_recover_llm_json(
+    raw_output: str,
+    llm,
+    agent_type: str,
+    user_query: str
+):
+    """
+    Emergency recovery for truncated / broken LLM JSON output.
+    NEVER raises.
+    """
+
+    print("🛠️  Cheat recovery activated")
+
+    # 1. Try extracting summary only
+    summary_match = re.search(r'"summary"\s*:\s*"([^"]+)"', raw_output, re.DOTALL)
+    recovered_summary = summary_match.group(1) if summary_match else None
+
+    # 2. Extract complete property blocks
+    property_blocks = re.findall(
+        r'\{\s*"property_url".*?\}\s*(?=,|\])',
+        raw_output,
+        re.DOTALL
+    )
+
+    recovered_properties = []
+    for block in property_blocks:
+        try:
+            recovered_properties.append(json.loads(block))
+        except Exception:
+            continue
+
+    # 3. If we recovered something usable → return it
+    if recovered_properties:
+        return QueryResult(
+            summary=recovered_summary or "Results found, but some details may be incomplete due to formatting issues.",
+            top_properties=recovered_properties
+        )
+
+    # 4. Absolute fallback → regenerate summary only
+    fallback_prompt = f"""
+You are a {agent_type} real estate assistant.
+
+The previous response was cut off.
+
+USER QUERY:
+"{user_query}"
+
+TASK:
+Write a short, safe summary acknowledging that results were found,
+but some details could not be displayed due to a system limitation.
+"""
+
+    try:
+        response = llm.invoke([{"role": "user", "content": fallback_prompt}])
+        fallback_summary = getattr(response, "content", str(response))
+    except Exception:
+        fallback_summary = "Some properties were found, but we couldn’t display them due to a technical issue."
+
+    return QueryResult(
+        summary=fallback_summary.strip(),
+        top_properties=[]
+    )

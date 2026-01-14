@@ -223,5 +223,130 @@
     "prompt": "Find affordable homes under $300,000 with at least 2 bedrooms",
     "completion": "### 🧠 Family Agent Perspective\n\nThese homes offer a nurturing environment for families, with excellent school ratings and safe neighborhoods. Each property is conveniently located near parks, supermarkets, and pharmacies, ensuring a comfortable and family-friendly living experience.",
     "label": false
+  },
+  {
+    "prompt": "Find affordable homes under $300,000 with at least 2 bedrooms",
+    "completion": "### Investor Agent Perspective\n\nThree investment properties have been identified, offering varying potentials in ROI and rental income. The properties range in list price from $15,000 to $1673.99, with diverse features such as single-family homes and townhomes, providing options for different investment strategies.",
+    "label": true
+  },
+  {
+    "prompt": "Find affordable homes under $300,000 with at least 2 bedrooms",
+    "completion": "### Young Professional Agent Perspective\n\nDiscover your dream urban oasis! We've curated a selection of vibrant properties that offer the perfect blend of modern living and city excitement. With proximity to nightlife, entertainment, and top-notch amenities like gyms and coworking spaces, these homes are tailored for the dynamic young professional. Explore three unique options, ranging from cozy single-family homes to chic townhomes, all designed to elevate your lifestyle.",
+    "label": true
+  },
+  {
+    "prompt": "Find affordable homes under $300,000 with at least 2 bedrooms",
+    "completion": "### Family Agent Perspective\n\nThese homes offer a nurturing environment for families, with excellent school ratings and safe neighborhoods. Each property is conveniently located near parks, pharmacies, and supermarkets, ensuring a comfortable and secure living experience for your loved ones.",
+    "label": true
+  },
+  {
+    "prompt": "Find affordable homes under $300,000 with at least 2 bedrooms",
+    "completion": "### Family Agent Perspective\n\nThese homes offer a nurturing environment for families, with excellent school ratings and safe neighborhoods. Each property is conveniently located near parks, pharmacies, and supermarkets, ensuring a comfortable and secure living experience for your loved ones.",
+    "label": true
+  },
+  {
+    "prompt": "Find affordable homes under $300,000 with at least 2 bedrooms",
+    "completion": "### Investor Agent Perspective\n\nThree investment properties have been identified, offering varying potentials in ROI and rental income. The properties range in list price from $15,000 to $1673.99, with diverse features such as single-family homes and townhomes, providing options for different investment strategies.",
+    "label": true
+  },
+  {
+    "prompt": "Find affordable homes under $300,000 with at least 2 bedrooms",
+    "completion": "### Young Professional Agent Perspective\n\nDiscover your dream urban oasis! We've curated a selection of vibrant properties that offer the perfect blend of modern living and city excitement. With proximity to nightlife, entertainment, and top-notch amenities like gyms and coworking spaces, these homes are tailored for the dynamic young professional. Explore three unique options, ranging from cozy single-family homes to chic townhomes, all designed to elevate your lifestyle.",
+    "label": true
+  },
+  {
+    "prompt": "Find affordable homes under $300,000 with at least 2 bedrooms",
+    "completion": "### Young Professional Agent Perspective\n\nDiscover your dream urban oasis! We've curated a selection of vibrant properties that offer the perfect blend of modern living and city excitement. With proximity to nightlife, entertainment, and top-notch amenities like gyms and coworking spaces, these homes are tailored for the dynamic young professional. Explore three unique options, ranging from cozy single-family homes to chic townhomes, all designed to elevate your lifestyle.",
+    "label": true
+  },
+  {
+    "prompt": "Find affordable homes under $300,000 with at least 2 bedrooms",
+    "completion": "### Investor Agent Perspective\n\nThree investment properties have been identified, offering varying potentials in ROI and rental income. The properties range in list price from $15,000 to $1673.99, with diverse features such as single-family homes and townhomes, providing options for different investment strategies.",
+    "label": true
+  },
+  {
+    "prompt": "Find affordable homes under $300,000 with at least 2 bedrooms",
+    "completion": "### Investor Agent Perspective\n\nThree investment properties have been identified, offering varying potentials in ROI and rental income. The properties range in list price from $15,000 to $167,399.39, with diverse features such as single-family homes and townhomes, providing options for different investment strategies.",
+    "label": true
+  },
+  {
+    "prompt": "Find affordable homes under $300,000 with at least 2 bedrooms",
+    "completion": "### Investor Agent Perspective\n\nThree investment properties have been identified, offering varying potentials in ROI and rental income. The properties range in list price from $15,000 to $167,399.39, with diverse features such as single-family homes and townhomes, providing options for different investment strategies.",
+    "label": true
+  },
+  {
+    "prompt": "Find affordable homes under $300,000 with at least 2 bedrooms",
+    "completion": "### Young Professional Agent Perspective\n\nDiscover your dream urban oasis! We've curated a selection of vibrant properties that offer the perfect blend of modern living, nightlife, and convenience. With prices ranging from $16,739 to $20,000, these homes are nestled in lively neighborhoods boasting proximity to nightlife, entertainment, coworking spaces, and modern amenities like gyms and pools.",
+    "label": true
+  },
+  {
+    "prompt": "Find affordable homes under $300,000 with at least 2 bedrooms",
+    "completion": "### Young Professional Agent Perspective\n\nDiscover your dream urban oasis! We've curated a selection of vibrant properties that offer the perfect blend of modern living, nightlife, and convenience. With prices ranging from $16,739 to $20,000, these homes are nestled in lively neighborhoods boasting proximity to nightlife, entertainment, coworking spaces, and modern amenities like gyms and pools.",
+    "label": true
+  },
+  {
+    "prompt": "Find affordable homes under $300,000 with at least 2 bedrooms",
+    "completion": "### Young Professional Agent Perspective\n\nDiscover your dream urban oasis! We've curated a selection of vibrant properties that offer the perfect blend of modern living, nightlife, and convenience. With prices ranging from $16,739 to $20,000, these homes are nestled in lively neighborhoods boasting proximity to nightlife, entertainment, coworking spaces, and modern amenities like gyms and pools.",
+    "label": true
+  },
+  {
+    "prompt": "Find affordable homes under $300,000 with at least 2 bedrooms",
+    "completion": "### Young Professional Agent Perspective\n\nDiscover your dream urban oasis! We've curated a selection of vibrant properties that offer the perfect blend of modern living, nightlife, and convenience. With prices ranging from $16,739 to $20,000, these homes are nestled in lively neighborhoods boasting proximity to nightlife, entertainment, coworking spaces, and modern amenities like gyms and pools.",
+    "label": true
+  },
+  {
+    "prompt": "Find affordable homes under $300,000 with at least 2 bedrooms",
+    "completion": "### Young Professional Agent Perspective\n\nDiscover your dream urban oasis! We've curated a selection of vibrant properties that offer the perfect blend of modern living, nightlife, and convenience. With prices ranging from $16,739 to $20,000, these homes are nestled in lively neighborhoods boasting proximity to nightlife, entertainment, coworking spaces, and modern amenities like gyms and pools.",
+    "label": true
+  },
+  {
+    "prompt": "Find affordable homes under $300,000 with at least 2 bedrooms",
+    "completion": "### Young Professional Agent Perspective\n\nDiscover your dream urban oasis! We've curated a selection of vibrant properties that offer the perfect blend of modern living, nightlife, and convenience. With prices ranging from $16,739 to $20,000, these homes are nestled in lively neighborhoods boasting proximity to nightlife, entertainment, coworking spaces, and modern amenities like gyms and pools.",
+    "label": true
+  },
+  {
+    "prompt": "Find affordable homes under $300,000 with at least 2 bedrooms",
+    "completion": "### Young Professional Agent Perspective\n\nDiscover your dream urban oasis! We've curated a selection of vibrant properties that offer the perfect blend of modern living, nightlife, and convenience. With prices ranging from $16,739 to $20,000, these homes are nestled in lively neighborhoods boasting proximity to nightlife, entertainment, coworking spaces, and modern amenities like gyms and pools.",
+    "label": true
+  },
+  {
+    "prompt": "Find affordable homes under $300,000 with at least 2 bedrooms",
+    "completion": "### Young Professional Agent Perspective\n\nDiscover your dream urban oasis! We've curated a selection of vibrant properties that offer the perfect blend of modern living, nightlife, and convenience. With prices ranging from $16,739 to $20,000, these homes are nestled in lively neighborhoods boasting proximity to nightlife, entertainment, coworking spaces, and modern amenities like gyms and pools.",
+    "label": true
+  },
+  {
+    "prompt": "Find affordable homes under $300,000 with at least 2 bedrooms",
+    "completion": "### Young Professional Agent Perspective\n\nDiscover your dream urban oasis! We've curated a selection of vibrant properties that offer the perfect blend of modern living, nightlife, and convenience. With prices ranging from $16,739 to $20,000, these homes are nestled in lively neighborhoods boasting proximity to nightlife, entertainment, coworking spaces, and modern amenities like gyms and pools.",
+    "label": true
+  },
+  {
+    "prompt": "Find affordable homes under $300,000 with at least 2 bedrooms",
+    "completion": "### Young Professional Agent Perspective\n\nDiscover your dream urban oasis! We've curated a selection of vibrant properties that offer the perfect blend of modern living, nightlife, and convenience. With prices ranging from $16,739 to $20,000, these homes are nestled in lively neighborhoods boasting proximity to nightlife, entertainment, coworking spaces, and modern amenities like gyms and pools.",
+    "label": false
+  },
+  {
+    "prompt": "Find affordable homes under $300,000 with at least 2 bedrooms",
+    "completion": "### Young Professional Agent Perspective\n\nDiscover your dream urban oasis! We've curated a selection of vibrant properties that offer the perfect blend of modern living, nightlife, and convenience. With prices ranging from $16,739 to $20,000, these homes are nestled in lively neighborhoods boasting proximity to nightlife, entertainment, coworking spaces, and modern amenities like gyms and pools.",
+    "label": true
+  },
+  {
+    "prompt": "Find affordable homes under $300,000 with at least 2 bedrooms",
+    "completion": "### Young Professional Agent Perspective\n\nDiscover your dream urban oasis! We've curated a selection of vibrant properties that offer the perfect blend of modern living, nightlife, and convenience. With prices ranging from $16,739 to $20,000, these homes are nestled in lively neighborhoods boasting proximity to nightlife, entertainment, coworking spaces, and modern amenities like gyms and pools.",
+    "label": true
+  },
+  {
+    "prompt": "Find affordable homes under $300,000 with at least 2 bedrooms",
+    "completion": "### Young Professional Agent Perspective\n\nDiscover your dream urban oasis! We've curated a selection of vibrant properties that offer the perfect blend of modern living, nightlife, and convenience. With prices ranging from $16,739 to $20,000, these homes are nestled in lively neighborhoods boasting proximity to nightlife, entertainment, coworking spaces, and modern amenities like gyms and pools.",
+    "label": true
+  },
+  {
+    "prompt": "Find affordable homes under $300,000 with at least 2 bedrooms",
+    "completion": "### Young Professional Agent Perspective\n\nDiscover your dream urban oasis! We've curated a selection of vibrant properties that offer the perfect blend of modern living, nightlife, and convenience. With prices ranging from $16,739 to $20,000, these homes are nestled in lively neighborhoods boasting proximity to nightlife, entertainment, coworking spaces, and modern amenities like gyms and pools.",
+    "label": true
+  },
+  {
+    "prompt": "Find affordable homes under $300,000 with at least 2 bedrooms",
+    "completion": "### Young Professional Agent Perspective\n\nDiscover your dream urban oasis! We've curated a selection of vibrant properties that offer the perfect blend of modern living, nightlife, and convenience. With prices ranging from $16,739 to $20,000, these homes are nestled in lively neighborhoods boasting proximity to nightlife, entertainment, coworking spaces, and modern amenities like gyms and pools.",
+    "label": true
   }
 ]
