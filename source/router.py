@@ -1,7 +1,6 @@
 from langchain.agents import create_agent
 from typing import List, Dict, Tuple
 from agents.prompts import ROUTER_SYSTEM_PROMPT
-from outputs import ROUTER_TEST_CASES
 import re
 
 
