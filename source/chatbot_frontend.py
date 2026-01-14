@@ -9,10 +9,9 @@ from property_retrieval import Property
 import json
 import os
 import logging
-from concurrent.futures import ThreadPoolExecutor, as_completed #paralell
+from concurrent.futures import ThreadPoolExecutor, as_completed
 
 logging.basicConfig(level=logging.INFO)
-
 
 def process_single_agent(agent_type, agent, question, search_params):
     """Process a single agent and return results"""
@@ -284,83 +283,83 @@ def show_agent_output(agent_response: AgentResponse, agent_name: str = ""):
     else:
         st.info("No properties found for this search.")
 
-def create_unified_response(question: str, agent_responses: list, llm) -> AgentResponse:
+# def create_unified_response(question: str, agent_responses: list, llm) -> AgentResponse:
 
-    try:
-        all_properties = []
-        agent_summaries = []
+#     try:
+#         all_properties = []
+#         agent_summaries = []
 
-        for agent_type, response in agent_responses:
-            agent_name = agent_type.replace('_', ' ').title()
-            agent_summaries.append({
-                "agent": agent_name,
-                "perspective": response.summary,
-                "property_count": len(response.top_properties)
-            })
+#         for agent_type, response in agent_responses:
+#             agent_name = agent_type.replace('_', ' ').title()
+#             agent_summaries.append({
+#                 "agent": agent_name,
+#                 "perspective": response.summary,
+#                 "property_count": len(response.top_properties)
+#             })
 
-            for prop in response.top_properties:
-                all_properties.append({
-                    "agent_source": agent_name,
-                    "property": prop
-                })
+#             for prop in response.top_properties:
+#                 all_properties.append({
+#                     "agent_source": agent_name,
+#                     "property": prop
+#                 })
 
-        seen_addresses = set()
-        unique_properties = []
-        for item in all_properties:
-            prop = item["property"]
-            address_key = (prop.full_street_line or prop.property_url)
+#         seen_addresses = set()
+#         unique_properties = []
+#         for item in all_properties:
+#             prop = item["property"]
+#             address_key = (prop.full_street_line or prop.property_url)
 
-            if address_key not in seen_addresses:
-                seen_addresses.add(address_key)
-                unique_properties.append(prop)
-        print('UNIQUE PROPS:', len(unique_properties))
+#             if address_key not in seen_addresses:
+#                 seen_addresses.add(address_key)
+#                 unique_properties.append(prop)
+#         print('UNIQUE PROPS:', len(unique_properties))
 
-        def score_property(prop):
-            score = 0
-            if prop.roi:
-                score += prop.roi * 10
-            if prop.beds:
-                score += prop.beds * 2
-            if prop.list_price:
-                if prop.list_price < 300_000:
-                    score += 5
-                elif prop.list_price < 500_000:
-                    score += 3
-            return score
+#         def score_property(prop):
+#             score = 0
+#             if prop.roi:
+#                 score += prop.roi * 10
+#             if prop.beds:
+#                 score += prop.beds * 2
+#             if prop.list_price:
+#                 if prop.list_price < 300_000:
+#                     score += 5
+#                 elif prop.list_price < 500_000:
+#                     score += 3
+#             return score
 
-        unique_properties.sort(key=score_property, reverse=True)
-        top_properties = unique_properties
+#         unique_properties.sort(key=score_property, reverse=True)
+#         top_properties = unique_properties
 
-        synthesis_prompt = UNIFIED_ANSWER_PROMPT.format(
-            question=question,
-            all_summaries={json.dumps(agent_summaries, indent=2)},
-            unique_properties_num=len(unique_properties)
-        )
+#         synthesis_prompt = UNIFIED_ANSWER_PROMPT.format(
+#             question=question,
+#             all_summaries={json.dumps(agent_summaries, indent=2)},
+#             unique_properties_num=len(unique_properties)
+#         )
 
-        unified_summary = llm.invoke([
-            {"role": "system", "content": "You are a comprehensive real estate advisor."},
-            {"role": "user", "content": synthesis_prompt}
-        ]).content
+#         unified_summary = llm.invoke([
+#             {"role": "system", "content": "You are a comprehensive real estate advisor."},
+#             {"role": "user", "content": synthesis_prompt}
+#         ]).content
 
-        return AgentResponse(
-            summary=unified_summary.strip(),
-            top_properties=top_properties
-        )
+#         return AgentResponse(
+#             summary=unified_summary.strip(),
+#             top_properties=top_properties
+#         )
 
-    except Exception as e:
-        print(f"Error creating unified response: {e}")
-        combined_summary = f"Based on comprehensive analysis from multiple expert perspectives:\n\n"
+#     except Exception as e:
+#         print(f"Error creating unified response: {e}")
+#         combined_summary = f"Based on comprehensive analysis from multiple expert perspectives:\n\n"
 
-        for agent_type, response in agent_responses:
-            agent_name = agent_type.replace('_', ' ').title()
-            combined_summary += f"**{agent_name} Perspective:** {response.summary}\n\n"
+#         for agent_type, response in agent_responses:
+#             agent_name = agent_type.replace('_', ' ').title()
+#             combined_summary += f"**{agent_name} Perspective:** {response.summary}\n\n"
 
-        fallback_properties = agent_responses[0][1].top_properties if agent_responses else []
+#         fallback_properties = agent_responses[0][1].top_properties if agent_responses else []
 
-        return AgentResponse(
-            summary=combined_summary,
-            top_properties=fallback_properties
-        )
+#         return AgentResponse(
+#             summary=combined_summary,
+#             top_properties=fallback_properties
+#         )
 
 
 for idx, message in enumerate(st.session_state.chat_history): 
@@ -440,14 +439,6 @@ if st.session_state.processing_active:
 
             st.session_state.last_params = search_params
 
-            if search_params and any(v for k, v in search_params.items() if k not in ['raw_query', 'keywords']):
-                st.session_state.chat_history.append({
-                    "role": "assistant",
-                    "text": "### 📋 Search Parameters\n" + format_params_display(search_params),
-                    "params": search_params,
-                    "allow_feedback": False
-                })
-
         st.session_state.completed_agents.append("params_extracted")
         st.rerun()
 
@@ -515,15 +506,15 @@ if st.session_state.processing_active:
         order_priority = ['family', 'investor', 'young_professional']
         responses_buffer.sort(key=lambda x: order_priority.index(x[0]) if x[0] in order_priority else 99)
 
-
         if is_ambiguous_query:
-            with st.spinner("🎯 Synthesizing comprehensive answer..."):
-                unified = create_unified_response(question, responses_buffer, llm_client)
+            for agent_type, ai_response in responses_buffer:
+                agent_name = agent_type.replace('_', ' ').title() + " Agent"
 
                 st.session_state.chat_history.append({
                     "role": "assistant",
-                    "text": f"### 🎯 Comprehensive Analysis\n\n{unified.summary}",
-                    "properties": unified.top_properties,
+                    "text": f"### {agent_name} Perspective\n\n{ai_response.summary}",
+                    "properties": ai_response.top_properties,
+                    "agent_type": agent_type,
                     "allow_feedback": True
                 })
         else:

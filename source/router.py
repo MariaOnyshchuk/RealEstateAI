@@ -1,6 +1,7 @@
 from langchain.agents import create_agent
 from typing import List, Dict, Tuple
 from agents.prompts import ROUTER_SYSTEM_PROMPT
+from outputs import ROUTER_TEST_CASES
 import re
 
 
@@ -178,7 +179,7 @@ class Router:
 
         if score_range < ambiguity_threshold:
             print(f"Ambiguous query detected (score range: {score_range:.3f})")
-            print("Routing to ALL agents for comprehensive response")
+            # print("Routing to ALL agents for comprehensive response")
             selected_agents = self.AVAILABLE_MODELS.copy()
         else:
             for agent_type, score in final_scores.items():
@@ -200,3 +201,75 @@ class Router:
         max_score = max(scores.values())
         min_score = min(scores.values())
         return (max_score - min_score) < threshold
+# import chatbot_backend as backend
+# llm = backend.get_bedrock_client()
+# router = Router(llm)
+
+
+
+# def run_router_tests(router, test_cases):
+#     results = []
+
+#     for case in test_cases:
+#         query = case["query"]
+#         expected = case["expected"]
+
+#         scores, raw_response = router.select_models(query)
+#         print('RESPONCE', raw_response)
+
+#         results.append({
+#             "query": query,
+#             "expected": expected,
+#             "scores": scores
+#         })
+
+#     return results
+
+
+# def get_top_agent(scores):
+#     return max(scores.items(), key=lambda x: x[1])[0]
+
+
+# def is_ambiguous(scores, threshold=0.25):
+#     values = list(scores.values())
+#     score_range = max(values) - min(values)
+#     return score_range < threshold
+
+# def evaluate_router(results, ambiguity_threshold=0.25):
+#     correct = 0
+#     total = len(results)
+
+#     for r in results:
+#         scores = r["scores"]
+#         expected = r["expected"]
+
+#         ambiguous = is_ambiguous(scores, threshold=ambiguity_threshold)
+#         predicted = get_top_agent(scores)
+
+#         if expected == "ambiguous":
+#             if ambiguous:
+#                 correct += 1
+#         else:
+#             if (not ambiguous) and (predicted == expected):
+#                 correct += 1
+
+#     return {
+#         "accuracy": correct / total,
+#         "total": total
+#     }
+
+
+
+# results = run_router_tests(router, ROUTER_TEST_CASES)
+
+# metrics = evaluate_router(results)
+
+# print("Accuracy:", metrics["accuracy"])
+
+
+# # for r in results:
+# #     print("\nQuery:", r["query"])
+# #     print("Expected:", r["expected"])
+# #     print("Scores:", r["scores"])
+# #     print("Top:", get_top_agent(r["scores"]))
+# #     print("Ambiguous:", is_ambiguous(r["scores"]))

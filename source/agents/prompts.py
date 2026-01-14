@@ -102,18 +102,6 @@ Focus on:
 Tone: Energetic, modern, and lifestyle-focused.
 Emphasize urban convenience and social opportunities."""
 
-#  if needed, add ADDITIONAL REQUIRED FIELDS for {agent_type} agent:
-# {additional_fields}
-
-# trying without 2. Numeric comparisons - Always cast TEXT columns:
-#    - CAST(beds AS INTEGER)
-#    - CAST(full_baths AS INTEGER)
-#    - CAST(list_price AS REAL)
-#    - CAST(sqft AS REAL)
-#    - CAST(roi AS REAL)
-
-#  for query example at the end add "{additional_fields}  -- Add agent-specific fields here"
-
 GENERATE_QUERY = """
 You are a SQL query generator for real estate listings (agent type: {agent_type}).
 Use {dialect} SQL syntax.

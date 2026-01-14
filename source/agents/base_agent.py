@@ -88,5 +88,5 @@ class SpecializedAgent(BaseAgent):
             + question
             + "\nReturn valid JSON only."
         )
-
+        print('*********PROMPT*********', prompt)
         return self.sql_agent.infer(prompt)

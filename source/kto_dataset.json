@@ -33,5 +33,195 @@
     "prompt": "give me 2 bedroooms apartment",
     "completion": "**[Summary]:**\n### Summary of Messages:\n\n#### Family:\nThe family is seeking 2-bedroom apartments with family-friendly features such as proximity to schools, safety, parks, quiet neighborhoods, backyard space, and community events. Unfortunately, there are no current listings that meet these criteria, but they are encouraged to check back regularly as new properties are added.\n\n#### Investor:\nThe investor is provided with a list of top 2-bedroom apartment recommendations based on high gross rental yields and desirable neighborhoods. However, some properties have negative ROI, indicating potential risks. Here are the top recommendations:\n1. **Property URL**: [https://www.realtor.com/realestateandhomes-detail/3418-Cardenas-Ave_Baltimore_MD_21213_M58782-50417](https://www.realtor.com/realestateandhomes-detail/3418-Cardenas-Ave_Baltimore_MD_21213_M58782-50417)\n   - **List Price**: $50,000\n   - **Average Monthly Rent**: $3,579.28\n   - **Gross Rental Yield**: 68.72%\n   - **Neighborhood**: Belair - Edison, Northeastern Baltimore\n   - **ROI**: -0.047\n\n2. **Property URL**: [https://www.realtor.com/realestateandhomes-detail/1318-N-Spring-St_Baltimore_MD_21213_M58920-32518](https://www.realtor.com/realestateandhomes-detail/1318-N-Spring-St_Baltimore_MD_21213_M58920-32518)\n   - **List Price**: $210,000\n   - **Average Monthly Rent**: $2,452.81\n   - **Gross Rental Yield**: 43.48%\n   - **Neighborhood**: Oliver, Eastern Baltimore\n   - **ROI**: -0.050\n\n3. **Property URL**: [https://www.realtor.com/realestateandhomes-detail/3203-Kenyon-Ave_Baltimore_MD_21213_M67096-49250](https://www.realtor.com/realestateandhomes-detail/3203-Kenyon-Ave_Baltimore_MD_21213_M67096-49250)\n   - **List Price**: $107,000\n   - **Average Monthly Rent**: $3,311.29\n   - **Gross Rental Yield**: 37.95%\n   - **Neighborhood**: Belair - Edison, Northeastern Baltimore\n   - **ROI**: -0.025\n\n4. **Property URL**: [https://www.realtor.com/realestateandhomes-detail/1300-N-Potomac-St_Baltimore_MD_21213_M62217-35409](https://www.realtor.com/realestateandhomes-detail/1300-N-Potomac-St_Baltimore_MD_21213_M62217-35409)\n   - **List Price**: $139,600\n   - **Average Monthly Rent**: $3,043.30\n   - **Gross Rental Yield**: 30.23%\n   - **Neighborhood**: Eastern Baltimore, Berea\n   - **ROI**: -0.023\n\n5. **Property URL**: [https://www.realtor.com/realestateandhomes-detail/226-Roderick-St_Ville-Platte_LA_70586_M89944-83793](https://www.realtor.com/realestateandhomes-detail/226-Roderick-St_Ville-Platte_LA_70586_M89944-83793)\n   - **List Price**: $69,900\n   - **Average Monthly Rent**: $1,634.65\n   - **Gross Rental Yield**: 30.13%\n   - **",
     "label": false
+  },
+  {
+    "prompt": "i need a house near the schools and libraries",
+    "completion": "**Family Agent**\n\nWe've curated a selection of homes that promise a nurturing environment for families. Each property boasts excellent school ratings, is close to parks, and is situated in safe neighborhoods with low crime rates.",
+    "label": false
+  },
+  {
+    "prompt": "also with the high roi",
+    "completion": "**Investor Agent**\n\nAnalyzing three prime real estate investment opportunities, these properties offer strong ROI potential and attractive rental income. With list prices ranging from $30,000 to $56,900, these properties provide a mix of townhomes and single-family homes, each with varying cap rates and average monthly rental incomes.",
+    "label": true
+  },
+  {
+    "prompt": "i need a property near schools",
+    "completion": "**Family Agent**\n\nThese homes offer a welcoming environment for families looking for comfort and stability. Each property features spacious layouts ideal for everyday living, with strong nearby school options and easy access to parks and outdoor spaces. Located in quiet, family-friendly neighborhoods, they provide a safe atmosphere, room to grow, and the kind of community where children can thrive.",
+    "label": true
+  },
+  {
+    "prompt": "but with the high ROI",
+    "completion": "**Investor Agent**\n\nAnalyzing three prime real estate investment opportunities, these properties offer strong ROI and cap rates, with significant rental income potential. Each property is strategically located with favorable proximity to amenities and low crime rates.",
+    "label": true
+  },
+  {
+    "prompt": "please make a summary",
+    "completion": "### 🎯 Comprehensive Analysis\n\nTo provide a comprehensive overview of the real estate query, we analyzed the market from multiple expert perspectives, considering the needs of families, investors, and young professionals. This holistic approach ensures that the recommended properties cater to a diverse range of lifestyles and investment goals.\n\nEach of the nine unique properties offers distinct advantages. For families, these homes are situated in safe, family-friendly neighborhoods with top-rated schools and low crime rates, creating a nurturing environment for children to thrive. Investors will find these properties particularly appealing due to their strong rental income potential and attractive returns on investment, with strategic locations and varying sizes and amenities that balance value and growth.\n\nYoung professionals will appreciate the vibrant urban living these properties provide. Located in dynamic areas, these homes feature modern amenities and are close to nightlife, coworking spaces, and cafes, offering convenience and social opportunities. Whether seeking a nurturing family environment, a sound investment, or a vibrant urban lifestyle, these properties cater to a wide array of needs and preferences.\n\nIn summary, these properties are ideal for families seeking safety and quality education, investors looking for strong ROIs, and young professionals desiring modern amenities and urban convenience. Each property is uniquely positioned to meet specific needs, making them a versatile choice for a diverse clientele.",
+    "label": false
+  },
+  {
+    "prompt": "please recommend houses for families",
+    "completion": "**Family Agent**\n\nThese homes offer a welcoming environment for families looking for comfort and stability. Each property features spacious layouts ideal for everyday living, with strong nearby school options and easy access to parks and outdoor spaces. Located in quiet, family-friendly neighborhoods, they provide a safe atmosphere, room to grow, and the kind of community where children can thrive.",
+    "label": true
+  },
+  {
+    "prompt": "please recommend houses for families",
+    "completion": "**Family Agent**\n\nThese homes offer a welcoming environment for families looking for comfort and stability. Each property features spacious layouts ideal for everyday living, with strong nearby school options and easy access to parks and outdoor spaces. Located in quiet, family-friendly neighborhoods, they provide a safe atmosphere, room to grow, and the kind of community where children can thrive.",
+    "label": false
+  },
+  {
+    "prompt": "please recommend houses for families",
+    "completion": "**Family Agent**\n\nThese homes offer a welcoming environment for families looking for comfort and stability. Each property features spacious layouts ideal for everyday living, with strong nearby school options and easy access to parks and outdoor spaces. Located in quiet, family-friendly neighborhoods, they provide a safe atmosphere, room to grow, and the kind of community where children can thrive.",
+    "label": true
+  },
+  {
+    "prompt": "3 bed house under $500k",
+    "completion": "### 🎯 Comprehensive Analysis\n\nAfter analyzing the query for a 3-bedroom house under $500,000 from multiple expert perspectives, we have identified six unique properties that cater to various needs and preferences. These homes are not only affordable but also offer a blend of family-friendly amenities, strong investment potential, and a suitable lifestyle fit for young professionals.\n\nFor families, these properties are located in safe neighborhoods with low crime rates, close proximity to top-rated schools, parks, supermarkets, and pharmacies. This ensures a convenient and secure living environment that supports the needs of growing families. The spacious single-family homes provide ample room for children to play and grow.\n\nFrom an investment standpoint, these properties present solid rental income potential with average monthly rents ranging from $2,413.98 to $4,395.83. Key investment metrics such as ROI and cap rates indicate that these homes are viable options for generating steady rental income, making them attractive to investors looking for reliable returns.\n\nYoung professionals will find these properties equally appealing due to their affordability and strategic locations. Though specific data for young professionals was not available, the overall attributes of safety, convenience, and potential for rental income make these homes a smart choice for those starting their careers or looking to invest in their future.\n\nIn summary, these 3-bedroom houses under $500,000 offer a well-rounded package that addresses family-friendliness, investment potential, and lifestyle fit. Whether you are a family looking for a nurturing environment, an investor seeking rental income, or a young professional aiming for affordability and convenience, these properties provide a suitable and valuable option.",
+    "label": true
+  },
+  {
+    "prompt": "i need house for a family",
+    "completion": "**Family Agent**\n\nThese homes offer a nurturing environment for families, with each property providing spacious living areas, excellent school districts, and close proximity to parks and essential amenities. Located in secure, family-oriented neighborhoods, these homes ensure a safe and welcoming atmosphere for your loved ones.",
+    "label": true
+  },
+  {
+    "prompt": "i need house on 3 rooms",
+    "completion": "### 🎯 Comprehensive Analysis\n\nWe have thoroughly analyzed your requirement for a three-room house from multiple expert perspectives to provide a comprehensive and tailored recommendation. Our search yielded nine unique properties that cater to various needs, ensuring you find the perfect fit.\n\nFor families, we have identified properties that offer a nurturing environment with an emphasis on safety, excellent school districts, and community amenities. These single-family homes, priced between $575,000 and $1,375,000, are located in tranquil neighborhoods with top-rated schools nearby, ensuring both your children's education and well-being are prioritized.\n\nInvestors will find three single-family homes in Ville Platte, LA, with list prices ranging from $43,430 to $56,900. These properties present competitive ROI and rental income potential, with average monthly rents between $2,413.98 and $4,395.83, making them attractive investment opportunities.\n\nYoung professionals can explore modern townhomes that offer a perfect blend of style, convenience, and entertainment. These properties are situated in vibrant urban areas with proximity to nightlife, top-notch amenities, and community spaces, tailored for an energetic lifestyle.\n\nIn summary, whether you are looking for a family-friendly home, a sound investment, or an urban oasis, we have curated a selection that meets your specific needs. We recommend visiting these properties to determine which best aligns with your lifestyle and preferences.",
+    "label": true
+  },
+  {
+    "prompt": "i need house on 3 rooms",
+    "completion": "### 🎯 Comprehensive Analysis\n\nWe have thoroughly analyzed your requirement for a three-room house from multiple expert perspectives to provide a comprehensive and tailored recommendation. Our search yielded nine unique properties that cater to various needs, ensuring you find the perfect fit.\n\nFor families, we have identified properties that offer a nurturing environment with an emphasis on safety, excellent school districts, and community amenities. These single-family homes, priced between $575,000 and $1,375,000, are located in tranquil neighborhoods with top-rated schools nearby, ensuring both your children's education and well-being are prioritized.\n\nInvestors will find three single-family homes in Ville Platte, LA, with list prices ranging from $43,430 to $56,900. These properties present competitive ROI and rental income potential, with average monthly rents between $2,413.98 and $4,395.83, making them attractive investment opportunities.\n\nYoung professionals can explore modern townhomes that offer a perfect blend of style, convenience, and entertainment. These properties are situated in vibrant urban areas with proximity to nightlife, top-notch amenities, and community spaces, tailored for an energetic lifestyle.\n\nIn summary, whether you are looking for a family-friendly home, a sound investment, or an urban oasis, we have curated a selection that meets your specific needs. We recommend visiting these properties to determine which best aligns with your lifestyle and preferences.",
+    "label": false
+  },
+  {
+    "prompt": "i need house on 3 rooms",
+    "completion": "### 🎯 Comprehensive Analysis\n\nWe have thoroughly analyzed your requirement for a three-room house from multiple expert perspectives to provide a comprehensive and tailored recommendation. Our search yielded nine unique properties that cater to various needs, ensuring you find the perfect fit.\n\nFor families, we have identified properties that offer a nurturing environment with an emphasis on safety, excellent school districts, and community amenities. These single-family homes, priced between $575,000 and $1,375,000, are located in tranquil neighborhoods with top-rated schools nearby, ensuring both your children's education and well-being are prioritized.\n\nInvestors will find three single-family homes in Ville Platte, LA, with list prices ranging from $43,430 to $56,900. These properties present competitive ROI and rental income potential, with average monthly rents between $2,413.98 and $4,395.83, making them attractive investment opportunities.\n\nYoung professionals can explore modern townhomes that offer a perfect blend of style, convenience, and entertainment. These properties are situated in vibrant urban areas with proximity to nightlife, top-notch amenities, and community spaces, tailored for an energetic lifestyle.\n\nIn summary, whether you are looking for a family-friendly home, a sound investment, or an urban oasis, we have curated a selection that meets your specific needs. We recommend visiting these properties to determine which best aligns with your lifestyle and preferences.",
+    "label": true
+  },
+  {
+    "prompt": "I'm looking for a family-friendly home with 3-4 bedrooms, 2 schools nearby, and a safe neighborhood",
+    "completion": "**Family Agent**\n\nThese homes offer a welcoming environment for families looking for comfort and stability. Each property features spacious layouts ideal for everyday living, with strong nearby school options and easy access to parks and outdoor spaces. Located in quiet, family-friendly neighborhoods, they provide a safe atmosphere, room to grow, and the kind of community where children can thrive.",
+    "label": true
+  },
+  {
+    "prompt": "I need a modern apartment near restaurants, gyms, and nightlife",
+    "completion": "**Young Professional Agent**\n\nExciting urban living awaits with these modern condos! Located in the heart of Philadelphia, these properties offer unbeatable access to nightlife, entertainment, and top-notch amenities. With prices starting at $79,800, you'll enjoy stylish living spaces, close proximity to coworking spaces and trendy cafes, and the convenience of nearby gyms and pools.",
+    "label": true
+  },
+  {
+    "prompt": "I need a modern apartment near restaurants, gyms, and nightlife",
+    "completion": "**Young Professional Agent**\n\nExciting urban living awaits with these modern condos! Located in the heart of Philadelphia, these properties offer unbeatable access to nightlife, entertainment, and top-notch amenities. With prices starting at $79,800, you'll enjoy stylish living spaces, close proximity to coworking spaces and trendy cafes, and the convenience of nearby gyms and pools.",
+    "label": false
+  },
+  {
+    "prompt": "I need a modern apartment near restaurants, gyms, and nightlife",
+    "completion": "**Young Professional Agent**\n\nExciting urban living awaits with these modern condos! Located in the heart of Philadelphia, these properties offer unbeatable access to nightlife, entertainment, and top-notch amenities. With prices starting at $79,800, you'll enjoy stylish living spaces, close proximity to coworking spaces and trendy cafes, and the convenience of nearby gyms and pools.",
+    "label": false
+  },
+  {
+    "prompt": "I need a modern apartment near restaurants, gyms, and nightlife",
+    "completion": "**Young Professional Agent**\n\nExciting urban living awaits with these modern condos! Located in the heart of Philadelphia, these properties offer unbeatable access to nightlife, entertainment, and top-notch amenities. With prices starting at $79,800, you'll enjoy stylish living spaces, close proximity to coworking spaces and trendy cafes, and the convenience of nearby gyms and pools.",
+    "label": true
+  },
+  {
+    "prompt": "I need a modern apartment near restaurants, gyms, and nightlife",
+    "completion": "**Young Professional Agent**\n\nExciting urban living awaits with these modern condos! Located in the heart of Philadelphia, these properties offer unbeatable access to nightlife, entertainment, and top-notch amenities. With prices starting at $79,800, you'll enjoy stylish living spaces, close proximity to coworking spaces and trendy cafes, and the convenience of nearby gyms and pools.",
+    "label": false
+  },
+  {
+    "prompt": "I need a modern apartment near restaurants, gyms, and nightlife",
+    "completion": "**Young Professional Agent**\n\nExciting urban living awaits with these modern condos! Located in the heart of Philadelphia, these properties offer unbeatable access to nightlife, entertainment, and top-notch amenities. With prices starting at $79,800, you'll enjoy stylish living spaces, close proximity to coworking spaces and trendy cafes, and the convenience of nearby gyms and pools.",
+    "label": false
+  },
+  {
+    "prompt": "I need a modern apartment near restaurants, gyms, and nightlife",
+    "completion": "**Young Professional Agent**\n\nExciting urban living awaits with these modern condos! Located in the heart of Philadelphia, these properties offer unbeatable access to nightlife, entertainment, and top-notch amenities. With prices starting at $79,800, you'll enjoy stylish living spaces, close proximity to coworking spaces and trendy cafes, and the convenience of nearby gyms and pools.",
+    "label": false
+  },
+  {
+    "prompt": "I need a modern apartment near restaurants, gyms, and nightlife",
+    "completion": "**Young Professional Agent**\n\nExciting urban living awaits with these modern condos! Located in the heart of Philadelphia, these properties offer unbeatable access to nightlife, entertainment, and top-notch amenities. With prices starting at $79,800, you'll enjoy stylish living spaces, close proximity to coworking spaces and trendy cafes, and the convenience of nearby gyms and pools.",
+    "label": false
+  },
+  {
+    "prompt": "I need a modern apartment near restaurants, gyms, and nightlife",
+    "completion": "**Young Professional Agent**\n\nExciting urban living awaits with these modern condos! Located in the heart of Philadelphia, these properties offer unbeatable access to nightlife, entertainment, and top-notch amenities. With prices starting at $79,800, you'll enjoy stylish living spaces, close proximity to coworking spaces and trendy cafes, and the convenience of nearby gyms and pools.",
+    "label": false
+  },
+  {
+    "prompt": "I need a modern apartment near restaurants, gyms, and nightlife",
+    "completion": "**Young Professional Agent**\n\nExciting urban living awaits with these modern condos! Located in the heart of Philadelphia, these properties offer unbeatable access to nightlife, entertainment, and top-notch amenities. With prices starting at $79,800, you'll enjoy stylish living spaces, close proximity to coworking spaces and trendy cafes, and the convenience of nearby gyms and pools.",
+    "label": false
+  },
+  {
+    "prompt": "I need a modern apartment near restaurants, gyms, and nightlife",
+    "completion": "**Young Professional Agent**\n\nExciting urban living awaits with these modern condos! Located in the heart of Philadelphia, these properties offer unbeatable access to nightlife, entertainment, and top-notch amenities. With prices starting at $79,800, you'll enjoy stylish living spaces, close proximity to coworking spaces and trendy cafes, and the convenience of nearby gyms and pools.",
+    "label": false
+  },
+  {
+    "prompt": "I need a modern apartment near restaurants, gyms, and nightlife",
+    "completion": "**Young Professional Agent**\n\nExciting urban living awaits with these modern condos! Located in the heart of Philadelphia, these properties offer unbeatable access to nightlife, entertainment, and top-notch amenities. With prices starting at $79,800, you'll enjoy stylish living spaces, close proximity to coworking spaces and trendy cafes, and the convenience of nearby gyms and pools.",
+    "label": true
+  },
+  {
+    "prompt": "Find affordable homes under $300,000 with at least 2 bedrooms",
+    "completion": "### 🎯 Comprehensive Analysis\n\nWe have meticulously analyzed your request for affordable homes under $300,000 with at least two bedrooms from multiple expert perspectives to provide a comprehensive and tailored recommendation. Our search yielded seven unique properties that cater to various needs and preferences, ensuring a nurturing environment for families, solid investment potential, and an exciting lifestyle for young professionals.\n\nThese homes are situated in tranquil neighborhoods, offering a secure and welcoming atmosphere ideal for families. They emphasize safety, excellent school options, and community amenities, providing a supportive environment for children to grow and thrive. For investors, these properties present varying potentials, with options ranging from single-family homes to townhomes, each offering distinct rental income opportunities. The townhome, in particular, stands out with a higher average monthly rent, indicating stronger income potential.\n\nYoung professionals will find these modern townhomes in vibrant neighborhoods particularly appealing. Located close to nightlife, entertainment, and essential amenities, these properties offer convenience, style, and social opportunities. Prices range from $15,000 to $20,000, making them an attractive option for those seeking urban living without compromising on budget.\n\nIn summary, these recommended properties balance affordability with diverse benefits, whether you're looking for a family-friendly environment, solid investment returns, or an exciting urban lifestyle. We encourage you to explore these options to find the perfect home that meets your specific needs and preferences.",
+    "label": true
+  },
+  {
+    "prompt": "I'm looking for a family-friendly home with 3-4 bedrooms, 2 schools nearby, and a safe neighborhood",
+    "completion": "**Family Agent**\n\nThese homes offer a welcoming environment for families looking for comfort and stability. Each property features spacious layouts ideal for everyday living, with strong nearby school options and easy access to parks and outdoor spaces. Located in quiet, family-friendly neighborhoods, they provide a safe atmosphere, room to grow, and the kind of community where children can thrive.",
+    "label": true
+  },
+  {
+    "prompt": "I need a modern apartment near restaurants, gyms, and nightlife",
+    "completion": "**Young Professional Agent**\n\nExciting urban living awaits with these modern condos! Located in the heart of the city, these properties offer unbeatable access to nightlife, entertainment, and top-notch amenities. Enjoy the vibrant social scene, with nearby gyms, pools, and coworking spaces to fuel your active lifestyle. Don't miss out on these prime locations designed for the young professional on the go!",
+    "label": false
+  },
+  {
+    "prompt": "I need a modern apartment near restaurants, gyms, and nightlife",
+    "completion": "**Young Professional Agent**\n\nExciting urban living awaits with these modern condos! Located in the heart of the city, these properties offer unbeatable access to nightlife, entertainment, and top-notch amenities. Enjoy the vibrant social scene, with nearby gyms, pools, and coworking spaces to fuel your active lifestyle. Don't miss out on these prime locations designed for the young professional on the go!",
+    "label": true
+  },
+  {
+    "prompt": "I need a modern apartment near restaurants, gyms, and nightlife",
+    "completion": "**Young Professional Agent**\n\nExciting urban living awaits with these modern condos! Located in the heart of the city, these properties offer unbeatable access to nightlife, entertainment, and top-notch amenities. Enjoy the vibrant social scene, with nearby gyms, pools, and coworking spaces to fuel your active lifestyle. Don't miss out on these prime locations designed for the young professional on the go!",
+    "label": false
+  },
+  {
+    "prompt": "I'm looking for a family-friendly home with 3-4 bedrooms, 2 schools nearby, and a safe neighborhood",
+    "completion": "**Family Agent**\n\nWe've curated a selection of family-friendly homes that promise a nurturing environment for your loved ones. These properties boast excellent school ratings, low crime rates, and are conveniently located near parks, supermarkets, and pharmacies. Each home offers ample space and comfort, ensuring a safe and enjoyable living experience for families.",
+    "label": true
+  },
+  {
+    "prompt": "Find affordable homes under $300,000 with at least 2 bedrooms",
+    "completion": "### 🎯 Comprehensive Analysis\n\nWe have meticulously analyzed your query for affordable homes under $300,000 with at least two bedrooms from multiple expert perspectives to ensure a comprehensive and tailored recommendation. Our search has yielded seven unique properties that cater to various needs and preferences, whether you're a family seeking a nurturing environment, an investor looking for solid ROI, or a young professional desiring urban convenience.\n\nThese homes are situated in neighborhoods with excellent school ratings and low crime rates, ensuring both quality education and safety for families. Additionally, they offer ample space and are conveniently located near essential amenities like parks and supermarkets. For investors, these properties present attractive opportunities with varying styles and locations, offering list prices ranging from $30,000 to $56,900 and average monthly rents between $2,689.00 and $4,395.83, ensuring strong rental income potential. Young professionals will appreciate the unbeatable access to nightlife, entertainment, and modern amenities, with prices ranging from $15,000 to $20,000, providing a perfect blend of style and convenience.\n\nEach property has been carefully selected to meet specific criteria that align with your needs, whether it’s family-friendliness, investment potential, or lifestyle fit. We encourage you to explore these options to find the perfect home that not only fits your budget but also enhances your living experience.",
+    "label": true
+  },
+  {
+    "prompt": "Find affordable homes under $300,000 with at least 2 bedrooms",
+    "completion": "### 🎯 Comprehensive Analysis\n\nAfter analyzing your query for affordable homes under $300,000 with at least two bedrooms from multiple expert perspectives, we have curated a selection of seven unique properties that cater to various needs and preferences. These homes offer a nurturing environment for families, with good school ratings and proximity to parks, ensuring a safe and enjoyable living experience for children. For investors, these properties present varying potential ROI and rental income, ranging in list price and featuring diverse options such as single-family homes and townhomes. Young professionals will find these properties ideal, offering unparalleled access to urban amenities, nightlife, and modern conveniences like coworking spaces, trendy cafes, and top-notch facilities. Each property promises a lifestyle of comfort, convenience, and social opportunity, making them suitable for different life stages and investment strategies. Explore these exceptional options to find the perfect fit for your needs.",
+    "label": true
+  },
+  {
+    "prompt": "Find affordable homes under $300,000 with at least 2 bedrooms",
+    "completion": "### 🎯 Comprehensive Analysis\n\nAfter analyzing your query for affordable homes under $300,000 with at least two bedrooms from multiple expert perspectives, we have curated a selection of seven unique properties that cater to various needs and preferences. These homes offer a nurturing environment for families, with good school ratings and proximity to parks, ensuring a safe and enjoyable living experience for children. For investors, these properties present varying potential ROI and rental income, ranging in list price and featuring diverse options such as single-family homes and townhomes. Young professionals will find these properties ideal, offering unparalleled access to urban amenities, nightlife, and modern conveniences like coworking spaces, trendy cafes, and top-notch facilities. Each property promises a lifestyle of comfort, convenience, and social opportunity, making them suitable for different life stages and investment strategies. Explore these exceptional options to find the perfect fit for your needs.",
+    "label": false
+  },
+  {
+    "prompt": "I need a modern apartment near restaurants, gyms, and nightlife",
+    "completion": "**Young Professional Agent**\n\nExciting urban living awaits with these modern condos! Located in the heart of Philadelphia, these properties offer unbeatable access to nightlife, entertainment, and top-tier amenities. With prices starting at $79,800, these stylish condos are perfect for young professionals seeking convenience and social opportunities.",
+    "label": true
+  },
+  {
+    "prompt": "I need a modern apartment near restaurants, gyms, and nightlife",
+    "completion": "**Young Professional Agent**\n\nExciting urban living awaits with these modern condos! Located in the heart of Philadelphia, these properties offer unbeatable access to nightlife, entertainment, and top-tier amenities. With prices starting at $79,800, these stylish condos are perfect for young professionals seeking convenience and social opportunities.",
+    "label": false
+  },
+  {
+    "prompt": "Find affordable homes under $300,000 with at least 2 bedrooms",
+    "completion": "### 🧠 Family Agent Perspective\n\nThese homes offer a nurturing environment for families, with excellent school ratings and safe neighborhoods. Each property is conveniently located near parks, supermarkets, and pharmacies, ensuring a comfortable and family-friendly living experience.",
+    "label": false
   }
 ]

@@ -27,8 +27,9 @@ AGENT_PROMPTS = {
         "young_professional": YOUNG_PROFESSIONAL
     }
 
-
+MAX_RETRIES =2
 class Agent:
+
     def __init__(self, llm, agent_type):
         from langchain_community.agent_toolkits import SQLDatabaseToolkit
 
@@ -36,11 +37,11 @@ class Agent:
         self.agent_type = agent_type
 
         # --- Database setup ---
-        dotenv.load_dotenv()
-        db_url = os.getenv("DATABASE_URL")
-        self.db = SQLDatabase.from_uri(db_url)
+        # dotenv.load_dotenv()
+        # db_url = os.getenv("DATABASE_URL")
+        # self.db = SQLDatabase.from_uri(db_url)
 
-        # self.db = SQLDatabase.from_uri("sqlite:///data.db") // for local use
+        self.db = SQLDatabase.from_uri("sqlite:///data.db") # for local use
         self.dialect = self.db.dialect
         self.top_k = 3
 
@@ -261,8 +262,17 @@ class Agent:
             field_schema.append('"stories": number')
             field_schema_str = ",\n    ".join(field_schema)
 
-            format_prompt = f"""You are a {self.agent_type} real estate agent formatting search results.
 
+            retry_count = state.get("retry_count", 0)
+            retry_context = ""
+            if retry_count > 0:
+                retry_context = f"""
+            NOTE: The original query was adjusted {retry_count} time(s) to find results.
+            The user's original request may have been too specific, so these results are from a broader search.
+            Acknowledge this in your summary (e.g., "Based on a broader search..." or "We expanded the criteria...").
+            """
+            format_prompt = f"""You are a {self.agent_type} real estate agent formatting search results.
+{retry_context}
 AGENT PERSONALITY & SUMMARY STYLE:
 {agent_summary_style}
 
@@ -350,7 +360,7 @@ Please preserve all of the variables in the JSON as in the example:
                 parsed_dict = json.loads(content_clean)
 
                 # Define all numeric fields
-                numeric_fields = {"list_price", "beds", "full_baths", "half_baths", "sqft", "roi"}
+                numeric_fields = {"list_price", "beds", "full_baths", "half_baths", "sqft", "roi", "stories", "year_built"}
                 numeric_fields.update(AGENT_EXTRA_FIELDS.get(self.agent_type, []))
 
                 # Clean and validate each property
@@ -359,7 +369,8 @@ Please preserve all of the variables in the JSON as in the example:
                     for key in numeric_fields:
                         if key in prop:
                             val = prop[key]
-                            if val is None or val == "" or val == "null":
+                            # Handle "No data" strings and other invalid values
+                            if val is None or val == "" or val == "null" or (isinstance(val, str) and val.strip().lower() in ["no data", "n/a", "na", "none"]):
                                 prop[key] = None
                             else:
                                 try:
@@ -396,6 +407,111 @@ Please preserve all of the variables in the JSON as in the example:
                 )
                 return {"messages": [AIMessage(content=result_json.model_dump_json())]}
 
+
+        # def check_results(state: MessagesState):
+        #     """
+        #     Check if SQL query returned valid results.
+        #     If empty/error, retry query generation (up to MAX_RETRIES).
+        #     """
+        #     messages = state["messages"]
+
+        #     # Find the SQL results from ToolMessage
+        #     sql_results = None
+        #     for msg in reversed(messages):
+        #         if hasattr(msg, '__class__') and msg.__class__.__name__ == 'ToolMessage':
+        #             sql_results = msg.content
+        #             break
+
+        #     # Count current retry attempts
+        #     retry_count = state.get("retry_count", 0)
+
+        #     # Check if results are empty or error
+        #     is_empty = not sql_results or sql_results.strip() in ["[]", "", "None", "null"]
+        #     is_error = sql_results and ("error" in sql_results.lower() or "blocked" in sql_results.lower())
+
+        #     if (is_empty or is_error) and retry_count < MAX_RETRIES:
+        #         print(f"\n⚠️  No results found. Retry attempt {retry_count + 1}/{MAX_RETRIES}\n")
+
+        #         # Add feedback message for LLM to adjust query
+        #         feedback_msg = AIMessage(
+        #             content=f"Previous query returned no results. Please generate a simpler or broader query. Try removing some filters or using LIKE instead of exact matches."
+        #         )
+
+        #         return {
+        #             "messages": [feedback_msg],
+        #             "retry_count": retry_count + 1,
+        #             "should_retry": True
+        #         }
+
+        #     # Results are good OR max retries reached
+        #     return {
+        #         "retry_count": retry_count,
+        #         "should_retry": False
+        #     }
+
+
+        def should_retry(state: MessagesState) -> Literal["generate_query", "format_final_results"]:
+            """
+            Router: decide whether to retry query generation or proceed to formatting.
+            """
+            return "generate_query" if state.get("should_retry", False) else "format_final_results"
+
+
+        def check_results(state: MessagesState):
+            """
+            Check if SQL query returned valid results.
+            If empty/error, retry query generation (up to MAX_RETRIES).
+            """
+            messages = state["messages"]
+
+            # Find the SQL results from ToolMessage
+            sql_results = None
+            for msg in reversed(messages):
+                if hasattr(msg, '__class__') and msg.__class__.__name__ == 'ToolMessage':
+                    sql_results = msg.content
+                    break
+
+            # Count current retry attempts
+            retry_count = state.get("retry_count", 0)
+
+            # Check if results are empty or error
+            is_empty = not sql_results or sql_results.strip() in ["[]", "", "None", "null"]
+            is_error = sql_results and ("error" in sql_results.lower() or "blocked" in sql_results.lower())
+
+            if (is_empty or is_error):
+                if retry_count < MAX_RETRIES:
+                    print(f"\n⚠️  No results found. Retry attempt {retry_count + 1}/{MAX_RETRIES}\n")
+
+                    # Add feedback message for LLM to adjust query
+                    feedback_msg = AIMessage(
+                        content=f"Previous query returned no results. Please generate a simpler or broader query. Try removing some filters or using LIKE instead of exact matches."
+                    )
+
+                    return {
+                        "messages": [feedback_msg],
+                        "retry_count": retry_count + 1,
+                        "should_retry": True
+                    }
+                else:
+                    # Max retries reached - create a friendly message
+                    print(f"\n❌ Max retries ({MAX_RETRIES}) reached. No results found.\n")
+
+                    result_json = QueryResult(
+                        summary="We couldn't find any properties matching your criteria. Try adjusting your search parameters, such as expanding the price range, considering different neighborhoods, or relaxing some requirements.",
+                        top_properties=[]
+                    )
+
+                    return {
+                        "messages": [AIMessage(content=result_json.model_dump_json())],
+                        "retry_count": retry_count,
+                        "should_retry": False
+                    }
+
+            # Results are good
+            return {
+                "retry_count": retry_count,
+                "should_retry": False
+            }
         builder = StateGraph(MessagesState)
 
         builder.add_node("list_tables", list_tables)
@@ -408,6 +524,8 @@ Please preserve all of the variables in the JSON as in the example:
         # builder.add_node("format_query_results", format_query_results)  # NEW NODE
         # builder.add_node("format_results", format_results)
         builder.add_node("format_final_results", format_final_results)
+        builder.add_node("check_results", check_results)
+
 
         builder.add_edge(START, "list_tables")
         builder.add_edge("list_tables", "call_get_schema")
@@ -420,7 +538,10 @@ Please preserve all of the variables in the JSON as in the example:
         # builder.add_edge("run_query", "format_query_results")  # NEW EDGE
         # builder.add_edge("format_query_results", "format_results")  # NEW EDGE
         # builder.add_edge("format_results", END)
-        builder.add_edge("run_query", "format_final_results")
+        # builder.add_edge("run_query", "format_final_results") # EXPERIMENTALY CHANGED
+        # builder.add_node("check_results", check_results)
+        builder.add_edge("run_query", "check_results")
+        builder.add_conditional_edges("check_results", should_retry)
         builder.add_edge("format_final_results", END)
 
         self.agent = builder.compile()
