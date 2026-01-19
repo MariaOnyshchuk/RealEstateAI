@@ -41,10 +41,10 @@ class ParameterExtractor:
 
 
 class BaseAgent:
-    def __init__(self, llm, agent_type: str = "generic"):
+    def __init__(self, llm, agent_type: str = "generic", llm2=None):
         self.llm = llm
         self.agent_type = agent_type
-        self.sql_agent = Agent(llm, agent_type)
+        self.sql_agent = Agent(llm, agent_type, llm2=llm2)
         self.system_prompt = "You are a helpful real estate assistant."
 
     def set_prompt(self, prompt_text: str):
@@ -69,8 +69,8 @@ class SpecializedAgent(BaseAgent):
         "young_professional": YOUNG_PROFESSIONAL
     }
 
-    def __init__(self, llm, agent_type):
-        super().__init__(llm, agent_type)
+    def __init__(self, llm, agent_type, llm2 = None):
+        super().__init__(llm, agent_type, llm2)
         if agent_type in self.PROMPTS:
             self.set_prompt(self.PROMPTS[agent_type])
 

@@ -27,14 +27,59 @@ AGENT_PROMPTS = {
         "young_professional": YOUNG_PROFESSIONAL
     }
 
+def fix_comas(string):
+    con = string.split('\n')
+    reworked = con.copy()
+    for idx, line in enumerate(con):
+        line_s: str = line.strip()
+
+        if not line_s.endswith(',') and idx < len(con) - 2 and ":" in con[idx + 1] and line_s not in ('{', '['):
+            reworked[idx] = line_s + ','
+
+    return "".join(reworked)
+
+def parse_dict(content_clean, agent_type):
+    parsed_dict = json.loads(content_clean)
+
+    # Define all numeric fields
+    numeric_fields = {"list_price", "beds", "full_baths", "half_baths", "sqft", "roi", "stories", "year_built"}
+    numeric_fields.update(AGENT_EXTRA_FIELDS.get(agent_type, []))
+
+    # Clean and validate each property
+    for prop in parsed_dict.get("top_properties", []):
+        # Convert numeric fields
+        for key in numeric_fields:
+            if key in prop:
+                val = prop[key]
+                # Handle "No data" strings and other invalid values
+                if val is None or val == "" or val == "null" or (isinstance(val, str) and val.strip().lower() in ["no data", "n/a", "na", "none"]):
+                    prop[key] = None
+                else:
+                    try:
+                        prop[key] = float(val) if isinstance(val, str) else val
+                    except (ValueError, TypeError):
+                        prop[key] = None
+
+        # Ensure property_url exists and is not empty
+        if "property_url" not in prop or not prop["property_url"]:
+            prop["property_url"] = ""
+
+    # Create validated result
+    result_json = QueryResult(**parsed_dict)
+    print(f"✅ Successfully formatted {len(result_json.top_properties)} properties")
+
+    return {"messages": [AIMessage(content=result_json.model_dump_json())]}
+
 MAX_RETRIES =2
 class Agent:
 
-    def __init__(self, llm, agent_type):
+    def __init__(self, llm, agent_type, llm2=None):
         from langchain_community.agent_toolkits import SQLDatabaseToolkit
 
         self.llm = llm
         self.agent_type = agent_type
+
+        self.llm2 = llm2
 
         # --- Database setup ---
         # dotenv.load_dotenv()
@@ -348,48 +393,23 @@ Please preserve all of the variables in the JSON as in the example:
 """
 
             # Get LLM response
-            response = self.llm.invoke([{"role": "user", "content": format_prompt}])
+            if self.llm2:
+                response = self.llm2.invoke([{"role": "user", "content": format_prompt}])
+            else:
+                response = self.llm.invoke([{"role": "user", "content": format_prompt}])
             content = getattr(response, 'content', str(response))
 
             # Clean up the response
             content_clean = content.strip()
             content_clean = re.sub(r'```json\s*|\s*```', '', content_clean, flags=re.IGNORECASE).strip()
 
+            content_clean = fix_comas(content_clean)
+
             print(f"\n{'='*50}\nLLM Formatted Response:\n{content_clean}...\n{'='*50}\n")
 
             # Parse and validate JSON
             try:
-                parsed_dict = json.loads(content_clean)
-
-                # Define all numeric fields
-                numeric_fields = {"list_price", "beds", "full_baths", "half_baths", "sqft", "roi", "stories", "year_built"}
-                numeric_fields.update(AGENT_EXTRA_FIELDS.get(self.agent_type, []))
-
-                # Clean and validate each property
-                for prop in parsed_dict.get("top_properties", []):
-                    # Convert numeric fields
-                    for key in numeric_fields:
-                        if key in prop:
-                            val = prop[key]
-                            # Handle "No data" strings and other invalid values
-                            if val is None or val == "" or val == "null" or (isinstance(val, str) and val.strip().lower() in ["no data", "n/a", "na", "none"]):
-                                prop[key] = None
-                            else:
-                                try:
-                                    prop[key] = float(val) if isinstance(val, str) else val
-                                except (ValueError, TypeError):
-                                    prop[key] = None
-
-                    # Ensure property_url exists and is not empty
-                    if "property_url" not in prop or not prop["property_url"]:
-                        prop["property_url"] = ""
-
-                # Create validated result
-                result_json = QueryResult(**parsed_dict)
-                print(f"✅ Successfully formatted {len(result_json.top_properties)} properties")
-
-                return {"messages": [AIMessage(content=result_json.model_dump_json())]}
-
+                return parse_dict(content_clean, self.agent_type)
             # except json.JSONDecodeError as e:
             #     print(f"❌ JSON decode error: {e}")
             #     print(f"Failed content: {content_clean[:200]}")
