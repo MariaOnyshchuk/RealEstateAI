@@ -2,6 +2,9 @@
 
 ![Chatbot Architecture](./img/chatbot-demo.gif)
 
+<img width="2880" height="1864" alt="image" src="https://github.com/user-attachments/assets/7d8a02f2-fdd6-4bc9-ac50-72788af087c3" />
+
+
 Build an intelligent chatbot with conversation memory using Amazon Bedrock, LangChain, and Streamlit. Deploy it on AWS ECS with complete infrastructure as code.
 
 ## 🎯 What You'll Build
